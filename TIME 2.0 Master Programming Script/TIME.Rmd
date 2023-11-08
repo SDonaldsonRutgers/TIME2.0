@@ -1,0 +1,7078 @@
+---
+title: "Tobacco Industry Monitoring Evaluation (TIME)"
+author: "Scott I. Donaldson, PhD"
+date: "02/09/2023"
+editor_options: 
+  chunk_output_type: console
+---
+
+# Load Packages
+```{r Gmail, include=FALSE}
+##Gmail
+library(gmailr)
+library(purrr)
+library(lubridate)
+library(tidyverse)
+library(tableHTML)
+library(xlsx)
+library(xtable)
+library(gridExtra)
+```
+```{r Twitter, include=FALSE}
+##Twitter
+library(rtweet)
+library(twitteR)
+library(httpuv)
+library(tidyverse)
+library(tidytext)
+library(openssl)
+library(ggplot2)
+library(wordcloud)
+library(quanteda)
+```
+```{r Instagram, include=FALSE}
+##Instagram
+library(instaloadeR)
+library(reticulate)
+library(Rinstapkg)
+```
+```{r YouTube, include=FALSE}
+##YouTube
+library(tuber)
+library(magrittr) 
+library(purrr)
+```
+```{r TikTok, include=FALSE}
+##TikTok
+library(tiktokr)
+```
+
+# Application Programming Interface
+```{r Twitter API}
+#Twitter API
+#Consumer Keys
+consumer_key <- "z0Odr2eoyfPBWib2btbUvlNh5"
+consumer_secret <- "bvLpFl5CkmuOz1qRPoBOrc6gY4jvUSKIN4ljsoLT423BBbd5wn"
+#Authentication Tokens
+access_token <- "1392869658626199559-2ieuHSYg3jEROgTcDZxg02sBKO4GJC"
+access_secret <- "98ozEnGQejUBwoI7zEess3d8Dl1OG9JcZuQ4pQVSeSkyx"
+
+## Authenticate via web browser
+token <- create_token(app = "USCSOMA",
+                      consumer_key = consumer_key,
+                      consumer_secret = consumer_secret)
+
+
+
+```
+```{r Instagram API}
+#Rinstapkg
+ig.auth(username = "scott.donaldson.phd",
+        password = "Big5Air6$")
+
+#InstaloadeR
+use.python(py.config()$python)
+install.instaloadeR()
+init.instaloadeR()
+insta.login(save = T)
+insta.login(load = T)
+
+```
+```{r YouTube API}
+#YouTube API
+client.id <- "747068687739-6tc79t031r6speip0hetg6v5vbmbv209.apps.googleusercontent.com"
+
+client.secret <- "ymLVUFDB5b-THWla1k-iKtFF"
+
+# use the youtube oauth 
+yt.oauth(app.id = client.id,
+         app.secret = client.secret,
+         token = '')
+
+```
+```{r TikTok API}
+use.python(py.config()$python)
+tk.install()
+tk.auth(docker = TRUE)
+tk.init() #initialize this everytime I run TiktokR
+
+if(stringr::str.length(get.docker.signature("")) > 16){
+  message("Signature successful. Your Docker container is working.")
+} else {
+  message("Unable to get signature")
+}
+
+```
+```{r GMail API}
+#Authentication
+gm_auth_configure(path = "/Users/ScottDonaldson/Desktop/USC/TIME/R/TIME/SOMA.json")
+
+gm_auth(cache = ".secret")
+```
+
+# Social Media Analytics
+```{r Twitter}
+#Search SOMA
+SOMA <- search_tweets(q = "Low nicotine", 
+                      n = 100,
+                      include.rts = FALSE,
+                      `-filter` = "replies",
+                      lang = "en")
+SOMA
+
+tuser <- getUser('geoffjentry')
+users <- lookupUsers(c('geoffjentry', 'whitehouse'))
+
+#Write as CSV
+write.as.csv(SOMA, "SOMA.csv.07.08")
+
+#Timeline of Juul
+ts.plot(Juul, "hours") +
+  labs(x = NULL, y = NULL,
+       title = "Frequency of Juul-related Tweets with a #Juul or #Puff Bar hashtag",
+       subtitle = paste0(format(min(Juul$created.at), "%d %B %Y"), " to ", format(max(Juul$created.at),"%d %B %Y")),
+       caption = "Data collected from Twitter's REST API via rtweet") +
+  theme.minimal()
+
+#Location
+Juul %>% 
+  filter(!is.na(place.full.name)) %>% 
+  count(place.full.name, sort = TRUE) %>% 
+  top.n(5)
+
+#Most frequently shared URLs
+Juul %>% 
+  filter(!is.na(urls.expanded.url)) %>% 
+  count(place.full.name, sort = TRUE) %>% 
+  top.n(5)
+
+#Most retweeted
+Juul %>% 
+  arrange(-retweet.count) %>%
+  slice(1) %>% 
+  select(created.at, screen.name, text, retweet.count)
+
+#Most Liked Tweet
+Juul %>% 
+  arrange(-favorite.count) %>%
+  top.n(5, favorite.count) %>% 
+  select(created.at, screen.name, text, favorite.count)
+
+#Top Tweeters
+Juul %>% 
+  count(screen.name, sort = TRUE) %>%
+  top.n(10) %>%
+  mutate(screen.name = paste0("@", screen.name))
+
+#Top Hashtags
+Juul %>% 
+  unnest.tokens(hashtag, text, "tweets", to.lower = FALSE) %>%
+  filter(str.detect(hashtag, "^#"),
+        hashtag != "#ClimateEmergency") %>%
+  count(hashtag, sort = TRUE) %>%
+  top.n(10)
+
+#Top mentions
+Juul %>% 
+  unnest.tokens(mentions, text, "tweets", to.lower = FALSE) %>%
+  filter(str.detect(mentions, "^@")) %>%  
+  count(mentions, sort = TRUE) %>%
+  top.n(10)
+
+#Top Words
+words <- SOMA %>%
+  mutate(text = str.remove.all(text, "&amp;|&lt;|&gt;"),
+         text = str.remove.all(text, "\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)"),
+         text = str.remove.all(text, "[^\x01-\x7F]")) %>% 
+  unnest.tokens(word, text, token = "tweets") %>%
+  filter(!word %in% stop.words$word,
+        !word %in% str.remove.all(stop.words$word, "'"),
+        str.detect(word, "[a-z]"),
+        !str.detect(word, "^#"),         
+        !str.detect(word, "@\\S+")) %>%
+  count(word, sort = TRUE)
+
+#WordCloud
+words %>% 
+  with(wordcloud(word, n, random.order = FALSE, max.words = 100, colors = "#F29545"))
+
+```
+```{r Instagram}
+# Search Tags
+JuulSearch      <- ig.search.tags("Juul")
+EjuiceSearch    <- ig.search.tags("ejuice")
+EliquidSearch   <- ig.search.tags("eliquid")
+SwisherSearch   <- ig.search.tags("swisher")
+BackwoodsSearch <- ig.search.tags("backwoods")
+
+# Get feed of Individual Hashtag
+# Juul
+Juulpods.Hash <- ig.get.hashtag.feed("juulpods")
+
+# Decompose Lists
+Juulpods.Hash.caption <- items.to.tidy.df(Juulpods.Hash$caption)
+Juulpods.Hash.user    <- items.to.tidy.df(Juulpods.Hash$user)
+
+# Combine Objects for Final Dataframe
+JuulPods.FinalDF <- cbind(Juulpods.Hash.caption,
+                          Juulpods.Hash.user,
+                          Juulpods.Hash)
+
+# Create final data frame with variables of interest
+
+JuulPods.FinalDF <- JuulPods.FinalDF[, c(2,3,18,27,36,37,51,54)]
+
+#Clean Date Variable
+JuulPods.FinalDF$taken.at <- as.epoch(JuulPods.FinalDF$taken.at)
+JuulPods.FinalDF$taken.at <-as.Date(as.POSIXct(JuulPods.FinalDF$taken.at, origin="1970-01-01"))
+
+UnlistImage <-as.data.frame(unlist(JuulPods.FinalDF$image.versions2))
+
+JuulPods.FinalDF$image.versions2
+
+```
+```{r YouTube}
+#Search Videos
+PuffBar <- yt.search("positive psychology")
+
+# Single Videos
+# Get Statistics of a Video
+get.stats(video.id = "weeI1G46q0o")
+
+#Get Information About a Video
+get.video.details(video.id = "weeI1G46q0o")
+
+#Get Comments of a Video
+get.all.comments(video.id = "n3NS9bPa5qY")
+
+
+#Get Statistics of Videos in a Channel
+JoeRogan <- list.channel.resources(filter = c(channel.id = "UCzQUP1qoWDoEbmsQxvdjxgQ"), part="contentDetails")
+
+# Uploaded playlists:
+playlist.id <- JoeRogan$items[[1]]$contentDetails$relatedPlaylists$uploads
+
+# Get videos on the playlist
+vids <- get.playlist.items(filter= c(playlist.id=playlist.id)) 
+
+# Video ids
+vid.ids <- as.vector(vids$contentDetails.videoId)
+
+# Function to scrape stats for all vids
+get.all.stats <- function(id) {
+  get.stats(id)
+} 
+
+# Get stats and convert results to data frame 
+res <- lapply(vid.ids, get.all.stats)
+JoeRogan.Stats <- do.call(rbind, lapply(res, data.frame))
+
+
+```
+```{r TikTok}
+#Get Hashtags
+TikTokData <- tk.posts(scope = "hashtag", 
+                 query = "well-being", 
+                 n = 10) 
+
+#Get Tiktok User
+user.posts <- tk.posts(scope = "user", 
+                       query = "", 
+                       n = 5) 
+
+
+```
+
+# Social Handles Project
+```{r UserTimelines Social Handles}
+## retrieve timelines of mulitple users
+G1 <- get.timeline(
+c(".alie.son",
+"acosta99.a",
+"basedmitsujoe",
+"cvmryne",
+"dexicana",
+"eric.b9",
+"gissselly.",
+"giventhus",
+"isuhhbelle.",
+"jakebelichik"),
+n=3000)
+
+G2 <- get.timeline(
+c("johndaasian",
+"kaitlynterzino", 
+"lizzzy..10",
+"mincasayoons.",
+"nmenetrey07",
+"pam.rauda",
+"Real.Dani.Payne",
+"rhiset.",
+"salcedomaria260",
+"sara022899"),
+n=3000)
+
+G3 <- get.timeline(
+c("Sean.blanc",
+"sfbtinnaa",
+"totallygidget",
+"vrooomyeung",
+"Y2Kminus1",
+"ZOOOLUETA",
+".galindoaileen",
+".jazmingomez",
+"Abner.poitan",
+"alec5504",
+"Aleirnava"),
+n=3000)
+
+G4 <- get.timeline(
+c("Allycat9815",
+"Alyssa.Hana",
+"alyssamedina55",
+"amandaaaaflores",
+"ann.robledo07",
+"Ari1..",
+"Asdfghjkl24562",
+"athena.ninaa",
+"austenyepez",
+"Awksunique"),
+n=3000)
+
+G5 <- get.timeline(
+c("baelette",
+"Bajo.Gio",
+"Bby.sarah.",
+"Bella.beeean",
+"Benniiehighlife",
+"blissgould",
+"boxxheaad",
+"brandangodfrey",
+"Brianaejuarez",
+"Brianfullobeans"),
+n=3000)
+
+G6 <- get.timeline(
+c("Briansvc11",
+"Bryan.dima",
+"camixwinter",
+"ccloeyy",
+"cesiahhh17",
+"chaverry18",
+"Chelseaglaze",
+"Chiachiaa02",
+"clarissaayang",
+"Colleenduhh"),
+n=3000)
+
+G7 <- get.timeline(
+c("crazy.asianguy",
+"CristeenCamacho",
+"cwistophaa",
+"Dabdenisse",
+"daisyleto",
+"dakesandu",
+"deaaannnnaaa",
+"deena.doe",
+"denisetaquito",
+"Discopugss"),
+n=3000)
+
+G8 <- get.timeline(
+c("dmg7799",
+"Duhhhhhhello",
+"eduardotorres61445",
+"Edwin.in.LA",
+"elchowdergato",
+"Ericrosado30",
+"ETupgrade",
+"Evelynnreneeh",
+"fartanari",
+"flowercamille"),
+n=3000)
+
+G9 <- get.timeline(
+c("fviithy",
+"gabbyisgnarly",
+"gemiknifed ",
+"greerster",
+"Hannahrosepdubs",
+"heidieligio",
+"hellowellyn",
+"Hopedsword",
+"HVillarreal99",
+"im.intellect"),
+n=3000)
+
+G10 <- get.timeline(
+c("ish.cervantes",
+"Itsshawwtyy.",
+"Ittybitty.sol ",
+"JackDressen",
+"jakefry99",
+"janellyoo",
+"jaycole159",
+"Jechii..",
+"jechii..",
+"jennaabrams0u8"),
+n=3000)
+
+G11 <- get.timeline(
+c("JennyJenJen1724",
+"Jesstineluevano ",
+"jgrace.ga",
+"jmoraga1998",
+"Juliaan.g09",
+"Juliastrobehn.",
+"JustineMuro",
+"K.Deblasio",
+"kaafisha ",
+"kasidybelle"),
+n=3000)
+
+G12 <- get.timeline(
+c("Katelyn.adams",
+"Kay.Ce.Be",
+"kenswizzle.",
+"knockoffwinemom",
+"Krystie1432",
+"ksakinaa",
+"lailoninicolee",
+"LaneyRDuarte",
+"lazylorraine",
+"Lemonicco"),
+n=3000)
+
+G13 <- get.timeline(
+c("LIGHTSHOWPLUG",
+"lilbabyrayray12",
+"luiszepeda714",
+"Magjoy12",
+"Maitesanchezzz",
+"makenzieforrest",
+"MarceyaRena",
+"marilynn.21",
+"mayavaldoria",
+"melaniegazaz"),
+n=3000)
+
+G14 <- get.timeline(
+c("Melo4679",
+"Miasilvas2",
+"mich31le",
+"ModestySanchez",
+"Moniquerivaas",
+"mp.marsalis",
+"n0ben",
+"nataliekday",
+"natalyaryanna ",
+"naulnosilla"),
+n=3000)
+
+G15 <- get.timeline(
+c("ninjakitty903",
+"None ",
+"Ogrewhelm",
+"OmarsObituary",
+"Patrick Wells",
+"paulnavaa ",
+"Pegasus01471",
+"preciousroybal",
+"priscy770",
+"R.jas."),
+n=3000)
+
+G16 <- get.timeline(
+c("raelinnbreann",
+"rchung0202",
+"rjayofsunshine",
+"rogermejia21",
+"Rosazavalaaa",
+"rosheeed",
+"Sailorinlove ",
+"Sammy..marie5",
+"Short.stacck",
+"sierra.crandell"),
+n=3000)
+
+G17 <- get.timeline(
+c("smozele",
+"srrnmike",
+"swooishere",
+"syrupsarah",
+"Taaaarrrraaaa",
+"Tasmiatasnim",
+"tf.mewyn",
+"thatchicasuave",
+"Thats.Soo.Vanna",
+"thomasvalles1"),
+n=3000)
+
+G18 <- get.timeline(
+c("tiffaanylam ",
+"tn.chvez",
+"Toaopurplekiwi",
+"tony.blount32",
+"toonlinku",
+"trans.spidey.",
+"triciavaladez",
+"Tylerannmariie ",
+"Uglyfeelzz",
+"Ursa.Major2017"),
+n=3000)
+
+G19 <- get.timeline(
+c("valerieamorr",
+"vberumen9",
+"Vee.nessa11",
+"Viviannroses ",
+"Xauxus",
+"xniiks",
+"xoxonatnat",
+"Xvanessa99x "),
+n=3000)
+
+SocialHandles.Final <- rbind(G1, G2, G3, G4, G5, G6, G7, G8,
+                             G9, G10, G11, G12, G13, G14, G15,
+                             G16, G17, G18, G19)
+
+SocialHandles.Quoted <- filter(SocialHandles.Final,
+                              is.quote == FALSE & is.retweet == FALSE)
+
+SocialHandles.Final <- select(SocialHandles.Quoted,
+                              screen.name,
+                              created.at,
+                              text, 
+                              favorite.count,
+                              status.url,
+                              reply.to.screen.name)
+
+write.as.csv(SocialHandles.Final, "socialhandles.Final.NEW.csv")
+
+```
+
+## TCORS
+```{r Download the dataset for TCORS}
+##Import dataset
+library(readxl)
+tcors <- read.excel("~/Desktop/USC/TIME/R/TIME/TCORS/tcors.twitter.071521.unique (1).xlsm")
+
+```
+```{r User Timelines TCORS}
+## retrieve timelines of users
+Group1 <- get.timelines(
+c("@8.BIT.eyes",
+".gixgax.",
+".ikissedjackie",
+".kristenhoward.",
+".maryerika"),
+n = 3000)
+
+Group2 <- get.timelines(
+c(".SanchezBEEE",
+".soledad",
+".xoxo.nat.",
+"0ptikq",
+"805peaches"),
+n = 3000)
+
+Group3 <- get.timelines(
+c("a.aluzzi",
+"abby.funk",
+"abihhgail",
+"ajarvis53",
+"ajmansontromb"),
+n = 3000)
+
+Group4 <- get.timelines(
+c("alexissiane",
+"alexnoballs",
+"amandaaaaflores",
+"ana.pineda28",
+"andflrs."),
+n = 3000)
+
+Group5 <- get.timelines(
+c("Angiexmariex",
+"Ann.robledo07",
+"Aracelylloera",
+"arianajaraa",
+"arlenee.perez"),
+n = 3000)
+
+Group6 <- get.timelines(
+c("arlolsie",
+"Ashley.vertin",
+"austenyepez",
+"austins.delight",
+"ayeeeitsjames."),
+n = 3000)
+
+Group7 <- get.timelines(
+c("baezekiei",
+"baileyyward",
+"Bananamilktears",
+"big.red",
+"Bluntedsam"),
+n = 3000)
+
+Group8 <- get.timelines(
+c("bluuuedream",
+"BM.isaac",
+"breenah.rex",
+"briannalyssa22",
+"bryanc321"),
+n = 3000)
+
+Group9 <- get.timelines(
+c("caitlingalias",
+"Capreezie",
+"carleymartinn",
+"CassidyMarshman",
+"Castrejon39"),
+n = 3000)
+
+Group10 <- get.timelines(
+c("Cbtmfg",
+"cee.r",
+"Celest.damore",
+"cemd8899",
+"charmingcheli"),
+n = 3000)
+
+Group11 <- get.timelines(
+c("chefjakefry",
+"Chelseaglaze",
+"Chelseawelsea13",
+"christa.let25",
+"ChristinaParra5"),
+n = 3000)
+
+Group12 <- get.timelines(
+c("clarissaayang",
+"Colleenduhh",
+"Cvmryne",
+"dachanch",
+"DamnedDamien"),
+n = 3000)
+
+Group13 <- get.timelines(
+c("dannyboy32799",
+"darbyannewalker",
+"Datonehomi",
+"Dazednc0nfuzed",
+"deaddbaby"),
+n = 3000)
+
+Group14 <- get.timelines(
+c("deathkyun",
+"diazbased",
+"DustinBolliger",
+"emmasvagdis",
+"Eric.r30"),
+n = 3000)
+
+Group15 <- get.timelines(
+c("erikaanicolee.",
+"eroldenne",
+"Esedvniel",
+"estherxchoe",
+"Eswizzlerdizzle",
+"ethanlejano",
+"EthanPitney",
+"Evelynruiz82",
+"fcknpheebs",
+"Fuckonx"),
+n = 3000)
+
+Group16 <- get.timelines(
+c("Gdunkle",
+"Gio.thebone",
+"Gissselly.",
+"Gladysg99",
+"gpellot.13",
+"gregorybowens.",
+"griff.herrera27",
+"groovypothead",
+"hanmvrie",
+"hddoonan"),
+n = 3000)
+
+Group17 <- get.timelines(
+c("hlundberg96",
+"hnsccam",
+"Hopedsword",
+"Hoskinssawyer",
+"hverdinn",
+"hvillarreal99",
+"Idklva",
+"iitslama",
+"ilenie",
+"InhumanTadpole"),
+n = 3000)
+
+Group18 <- get.timelines(
+c("IniguezAndy",
+"intr0to",
+"Irenexalys",
+"Islandgirlp.",
+"itsnathanl",
+"itsnotmelany",
+"Itsssjojo",
+"Itzbranden44",
+"jacinddaa",
+"JackDressen"),
+n = 3000)
+
+Group19 <- get.timelines(
+c("jacksonchav",
+"jacobjgrillo",
+"Jamiedawnv",
+"Janellyoo",
+"jassss.c",
+"jennflenn",
+"jeremyclark",
+"jessica.alva.",
+"jessicahine29"),
+n = 3000)
+
+Group20 <- get.timelines(
+c("Joeyy.flores",
+"jonathan.1629",
+"Josegutz06",
+"JP.Linden",
+"judy.martini24",
+"Justindreyez",
+"K.Deblasio",
+"kasidybelle",
+"Katiipinedaa",
+"Kay.Ce.Be"),
+n = 3000)
+
+Group21 <- get.timelines(
+c("kelipls",
+"kevmady",
+"Kiimayne",
+"Kimayonnaise",
+"Krystie1432",
+"kylievctoria",
+"kymmie.woken",
+"Lexatsuruta",
+"lgalindo26",
+"lilxlilly"),
+n = 3000)
+
+Group22 <- get.timelines(
+c("litttleleggs",
+"LoveTheOnly94",
+"maddiesalle",
+"maddyvilla",
+"Magjoy12",
+"Maite.sanchezzz",
+"mar",
+"Marcielhilton",
+"Marieee.v",
+"markyhernandez7"),
+n = 3000)
+
+Group23 <- get.timelines(
+c("MatthewHinojos",
+"Megannaus",
+"MeghanBlunt",
+"mendezhector26",
+"Meowlanietran",
+"Miasilvas2",
+"micheIIeledezma",
+"mira.shammas",
+"mistaachristaa",
+"Moniquerivaas"),
+n = 3000)
+
+Group24 <- get.timelines(
+c("mrdr.29",
+"msimpson96",
+"natalieehd",
+"Natluv1000",
+"neoretr0",
+"nicolealbro",
+"nicoleperez333",
+"nonoholmes",
+"not.england",
+"Officialvurtue"),
+n = 3000)
+
+Group25 <- get.timelines(
+c("peachymadeline",
+"Pegasus0147",
+"Pie98200",
+"pnkcloudsmr",
+"PortTadiken",
+"prodfanguin",
+"RafaielEskander",
+"randysoccer10",
+"redspydervv",
+"Robin.thiccc"),
+n = 3000)
+
+Group26 <- get.timelines(
+c("Ronnieforno",
+"s.ghalam",
+"samcoltrane19",
+"sammanxtha",
+"Sammyduranblah",
+"Sean.blanc",
+"Selena.Mariah",
+"sienna212",
+"sirhcxanep",
+"Smozele"),
+n = 3000)
+
+Group27 <- get.timelines(
+c("Smurfy.411",
+"soljoeboytellem",
+"somekindofsuzie",
+"spookysuruh",
+"Studmuffler321",
+"svmiiiie",
+"swooishere",
+"swooishere",
+"Tahliaparis",
+"TangereentreeS"),
+n = 3000)
+
+Group28 <- get.timelines(
+c("taysumms..",
+"Tcros5",
+"Tennis.Robot.",
+"Theamericanjake",
+"thekingluey",
+"thouXam",
+"treriserp",
+"tumamilensi",
+"tylerbolin97",
+"tyrablesss"),
+n = 3000)
+
+Group29 <- get.timelines(
+c("uhnitamoreno",
+"Ursa.Major2017",
+"V.Munoz05",
+"vanessadimasss",
+"veronicasmeltz",
+"vivianaguereca",
+"Viviannroses",
+"wiimpyshriimpy",
+"WillBelfiore",
+"yiseliee",
+"zanejackson55",
+"zaritaa."),
+n = 3000)
+
+#Combine into final dataset
+
+TCORS.Final <- rbind(Group1, Group2, Group3, Group4, Group5,
+                     Group6, Group7, Group8, Group9, Group10,
+                     Group11, Group12, Group13, Group14, Group15,
+                     Group16, Group17, Group18, Group19, Group20,
+                     Group21, Group22, Group23, Group24, Group25,
+                     Group26, Group27, Group28, Group29
+                     )
+
+TCORS.Final$created.at <- as.Date(TCORS.Final$created.at)
+
+write.as.csv(TCORS.Final, "tcors.Final.csv")
+
+```
+## Merge Social Handles and TCORS
+```{r Merge}
+MASTERDATA <- rbind(SocialHandles.Final,
+                    TCORS.Final)
+MASTERDATA.Final <- select(MASTERDATA,
+                     created.at,
+                     screen.name,
+                     text, 
+                     favorite.count,
+                     is.quote,
+                     reply.to.screen.name,
+                     is.retweet,
+                     quoted.name,
+                     status.url)
+#Get rid of retweets
+MASTERDATA.Final <- filter(MASTERDATA.Final,
+                           is.retweet == FALSE)
+
+#Get rid of quotes
+MASTERDATA.Final <- filter(MASTERDATA.Final,
+                           is.quote == FALSE)
+
+#Filter the correct dates
+MASTERDATA.Final <- filter(MASTERDATA.Final,
+                           created.at < 
+                           "2021-07-01" & 
+                            created.at > "2017-07-01")
+
+#Get rid of reply to
+MASTERDATA.Final <- mutate(MASTERDATA.Final,
+                           MissingREPLY = is.na(MASTERDATA.Final$reply.to.screen.name))
+
+MASTERDATA.Final <- filter(MASTERDATA.Final,
+                           MissingREPLY == TRUE)
+
+write.as.csv(MASTERDATA.Final, "MASTER.csv")
+```
+
+
+
+
+
+# Health Effects of Cannabis Use
+```{r Read in the Data}
+Data <- read.csv(
+"/Users/ScottDonaldson/Desktop/USC/TIME/R/TIME/data.csv",
+header = TRUE,
+nrows = 200000)
+```
+```{r Cancer}
+#Cancer
+Cancer <-  as.data.frame(
+grep(
+"biopsies|biopsy|burkitt|cancer|carcinoma|carcinogenic|hodkinsons|lymphoma|mammogram|mammography|tumor|malignent|leukemia|melanoma|sarcoma|carcinoma|cancerous|chemotherapy",
+value = TRUE,
+Data$text))
+
+Cancer <-Cancer[sample(nrow(Cancer), 39), ]
+
+Cancer <- data.frame(
+text = Cancer
+)
+
+Cancer$Category <- "Cancer"
+```
+```{r Cardio}
+#Cardio
+Cardio <-  as.data.frame(
+grep(
+"blood pressure |cardiovascular|cholesterol|coronary|echocardiogram|heatflash|hypertension|pulse |stroke |tachycardia|palpitations|tension |heart attack|heartbeat|palpitate
+",
+value = TRUE,
+Data$text))
+
+Cardio <-Cardio[sample(nrow(Cardio), 5), ]
+
+Cardio <- data.frame(
+text = Cardio
+)
+
+Cardio$Category <- "Cardio"
+```
+```{r Respiratory}
+#Resp
+Resp <-  as.data.frame(
+grep(
+"abscence oxygen|airswallow|anoxia|apnea|asthma |blacklung|bronchitis |breathe|pulmonary|cough|pulmonary|Respiratory|breath|wheeze|wheezing|emphysema|bronchiolitis|coughing|hyperventilating|airway infection|hyperventilate|panting|huffing|out breath|shortness breath
+",
+value = TRUE,
+Data$text))
+
+Resp <-Resp[sample(nrow(Resp), 47), ]
+
+Resp <- data.frame(
+text = Resp
+)
+
+Resp$Category <- "Resp"
+```
+```{r Cognitive}
+#Cognitive
+Cognitive <-  as.data.frame(
+grep(
+"conscious|cognitive|focus|helps concentrate|attention|concentrating
+",
+value = TRUE,
+Data$text))
+
+Cognitive <-Cognitive[sample(nrow(Cognitive), 25), ]
+
+Cognitive <- data.frame(
+text = Cognitive
+)
+
+Cognitive$Category <- "Cognitive"
+```
+```{r Gastro}
+#Cognitive
+Gastro <-  as.data.frame(
+grep(
+"appetite|ache|bloating|bloated|burp|colic |constipate|constipation|diarrhea|gallstone|heartburn|indigestion|nausea|ulcer|ulceration|vomit|vomiting|gastrointestinal|cramps|swollen|belch|bellyache|stuffedup|acidreflux|queasy|puke|drunkenness|alcoholic|loss of taste
+",
+value = TRUE,
+Data$text))
+
+Gastro <-Gastro[sample(nrow(Gastro), 29), ]
+
+Gastro <- data.frame(
+text = Gastro
+)
+
+Gastro$Category <- "Gastro"
+```
+```{r Neuro}
+#Neuro
+Neuro <-  as.data.frame(
+grep(
+"coma|fatigue|coma|dizzy|lightheaded|tingling|buzzed|drunk|inebriated|hammered|twitch|junkie|faint|pass out|black out|convulse|     convulsion|delirious|developmental disorder|
+addicted|Addiction|drowsiness|drowsy|epilepsy|faint|fatigue|hallucinate|holmesadie|inebriate",
+value = TRUE,
+Data$text))
+
+Neuro <-Neuro[sample(nrow(Neuro), 160), ]
+
+Neuro <- data.frame(
+text = Neuro
+)
+
+Neuro$Category <- "Neurological"
+```
+```{r Weight}
+#Weight
+Weight <-  as.data.frame(
+grep(
+"fat|fatness|overweight|stoutness|heaviness|obese|obesity|weight
+",
+value = TRUE,
+Data$text))
+
+Weight <-Weight[sample(nrow(Weight), 16), ]
+
+Weight <- data.frame(
+text = Weight
+)
+
+Weight$Category <- "Weight"
+```
+```{r Prego}
+#prego
+prego <-  as.data.frame(
+grep(
+"abortion|antenatal|birth defect|congential|fetal|foetal|maternal|miscarriage|gestation|birthing|pregnancy|malformation|pregnancy|knockedup|preggers
+",
+value = TRUE,
+Data$text))
+
+prego <-prego[sample(nrow(prego), 14), ]
+
+prego <- data.frame(
+text = prego
+)
+
+prego$Category <- "prego"
+```
+```{r Mental Health}
+#Neuro
+Mental.Health <-  as.data.frame(
+grep(
+"anorexia|anoxemia|anxiety|anxious|hyperactivity|bipolar|bulemic|bulimia|dementia|depressed|depression|depressive eating disorder|emotional|fidgety|hypochondria|hypochondriasis|pissed|insomnia|mental disorder|mental health|mental condition|mentally|panic|phobia|psychiatric|psychoses|psychotic|trauma|malnourished|worry|ADHD|sad |miserable|bleak|uneasy|germaphobe|neurotic|sleeplessness|OCD|freakout|PTSD|psychotic|insanity|lunacy|unhappy|upset|moody|melancholy|sadness|unhappiness|sorrow |fear|nervousness|compulsive|dysregulation|jittery|jitters|tense|relaxed|distress|calm",
+value = TRUE,
+Data$text))
+
+Mental.Health <-Mental.Health[sample(nrow(Mental.Health), 280), ]
+
+Mental.Health <- data.frame(
+text = Mental.Health
+)
+
+Mental.Health$Category <- "Mental.Health"
+
+```
+```{r Stress}
+#stress
+stress <-  as.data.frame(
+grep(
+"cortisol|cushing's syndrome|tension |sweating|shaking|testiness|irritable|hypercortisolemia|hypercortisolic|hypercortisolism|hyperventilate|stress|perspiration|tremor
+",
+value = TRUE,
+Data$text))
+
+stress <-stress[sample(nrow(stress), 38), ]
+
+stress <- data.frame(
+text = stress
+)
+
+stress$Category <- "stress"
+```
+```{r Pain}
+#pain
+pain <-  as.data.frame(
+grep(
+"ache|anaesthetic|analgesic|cramp|earache|fibromyalgia|lumbago|migraine|pain|sore|toothache|painkiller |muscle pain|backpain|headache|throbbing|aching",
+value = TRUE,
+Data$text))
+
+pain <-pain[sample(nrow(pain), 109), ]
+
+pain <- data.frame(
+text = pain
+)
+
+pain$Category <- "pain"
+```
+```{r Injury}
+#injury
+injury <-  as.data.frame(
+grep(
+"accident|bleed|burn|injurious|injury|lesion|rupture|swell|wound|choke|spasm|injury|mishap|hemorrhage|wound|laceration|lacerate|restlessness|bruise|fissure|puncture",
+value = TRUE,
+Data$text))
+
+injury <-injury[sample(nrow(injury), 55), ]
+
+injury <- data.frame(
+text = injury
+)
+
+injury$Category <- "injury"
+```
+```{r Immune}
+#Immune
+immune <-  as.data.frame(
+grep(
+"allergic|allergies|allergy|antigen|coeliac|common cold|immune|immunisation|immunity|immunization|immunize|immunodeficiency|immunogen|impulsive|flu|gluten|resistant|inoculate
+",
+value = TRUE,
+Data$text))
+
+immune <-immune[sample(nrow(immune), 35), ]
+
+immune <- data.frame(
+text = immune
+)
+
+immune$Category <- "immune"
+```
+```{r Derm}
+#Derm
+derm <-  as.data.frame(
+grep(
+"abscess|blackhead|blister|bullae|dermatitis|eczema|itch |itching|itchy|pale skin|psoriasis|rash |pruritus|eczema|dermatitis|ichthyosis|cellulitis|melasma|impetigo|keratosis|wart|vitiligo|blemish|eczema|tickle|skin crawling|pallor|dryness
+",
+value = TRUE,
+Data$text))
+
+derm <-derm[sample(nrow(derm), 4), ]
+
+derm <- data.frame(
+text = derm
+)
+
+derm$Category <- "derm"
+```
+```{r Death}
+#Death
+death <-  as.data.frame(
+grep(
+"die|dead|died|lost lives|lost her life|lost their lives |lost his life|passed away|killed",
+value = TRUE,
+Data$text))
+
+death <-death[sample(nrow(death), 90), ]
+
+death <- data.frame(
+text = death
+)
+
+death$Category <- "death"
+```
+```{r Poison}
+#poison
+poison <-  as.data.frame(
+grep(
+"poisin|toxic|toxicity|poisoning|poisonous
+",
+value = TRUE,
+Data$text))
+
+poison <-poison[sample(nrow(poison), 24), ]
+
+poison <- data.frame(
+text = poison
+)
+
+poison$Category <- "poison"
+```
+```{r Other}
+#other
+other <-  as.data.frame(
+grep(
+"abuse alcohol|addison|adnexitis|adrenogenital|amputate|amputation|aneurysm|inflammatories|inflammation|inflammatory |arthritis|autism|autistic|avulsion|badbreath|bleeding|colorblind|blood sugar |cachexia|cataract|chills|chlamydia|cholangitis|chronic|clotting|coagulate|coagulation|conjunctivitis|cyst|fibrosis|deafness|deficiency|deformity|dehydrate|dehydrated|dehydration|dengue|dental |diabetic|dilated|disability|genetic|down syndrome|endometriosis|epistaxis|erectile|erode|erosion|erosive|fever|fissure|fracture|glaucoma|gout|handicap|hearingloss|hemorrhage|hemorrhoids|hepatitis|hernia|hiv |hormonal|hotflash|hyperglycemia|hypersensitive|hypoadrenalism disorder|hypothermia|hypoxia|immobility|infect|infection|infectious|infertile|inflammation|inflammatory|influenza|intoxication|intubate|intubated|intubation|anemia|irritability|jaundice|laryngitis|leukemia|libido|lymes|lymphadenitis|malignant|measles|menstrual|menstruate|menstruation| mmr |mumps|nerve|numb| oral|osteoarthritis|osteoporosis|ovarian|deficiency|pancreatitis|paralysis|parenchyma|parkinsons|pathological|pathology|periodontitis|pharyngitis|handicap|pneumonia|polio|arthritis|rheumatologic|rubella|sciatica|scoliosis|sepsis|spondylitis|syphillis|tetanus|thoracis|thyroiditis|tonsillitis|tuberculous|urination|urinary tract infection|vaginosis|warthog|choke",
+value = TRUE,
+Data$text))
+
+other <-other[sample(nrow(other), 124), ]
+
+other <- data.frame(
+text = other
+)
+
+other$Category <- "other"
+```
+```{r CreateMaster}
+
+HealthEffects <- 
+rbind(
+Cancer,
+Cardio,
+Resp,
+Cognitive,
+Gastro,
+Neuro,
+Weight,
+prego,
+Mental.Health,
+stress,
+pain,
+injury,
+immune,
+derm,
+death,
+poison,
+other
+)
+
+write.as.csv(HealthEffects, "healtheffects.csv")
+```
+```{r keywords in context}
+corp <- corpus(Data)
+toks <- tokens(corp)
+kw <- kwic(toks, 
+           pattern = c("perform*"), 
+           window = 20)
+
+```
+
+
+# GmailR
+```{r Sean Donovan}
+threads <- gm_threads(num_results = 700)
+
+thread_ids <- gm_id(threads)
+
+#extract all the thread ids
+threads_expanded <- map(thread_ids, gm_thread)
+
+msgs <- vector()
+for(i in (1:length(threads_expanded))){
+  msgs <- append(msgs, values = threads_expanded[[i]]$messages)
+}
+#extract all the individual messages from each thread
+
+msg_ids <- unlist(map(msgs, gm_id))
+#get the message id for each message
+
+msg_body <- vector()
+
+#get message body, store in vector
+for(msg in msgs){
+  body <- gm_body(msg)
+  attchmnt <- nrow(gm_attachments(msg))
+  if(length(body) != 0 && attchmnt == 0){
+#does not return a null value, rather an empty list or list
+
+#body is not 0 (there is something there) and there are no attachments, 
+
+#add it to vector
+
+msg_body <- append(msg_body, body)
+#if there is no to info, fill that spot with an empty space
+  }
+  else{
+    msg_body <- append(msg_body, "")
+    #if there is no attachment but the body is also empty add "" to the list
+  }
+}
+
+msg_body <- unlist(msg_body)
+
+msg_datetime <- msgs %>%
+  map(gm_date) %>%
+  unlist()%>%
+  dmy_hms()
+
+msg_to <- msgs %>%
+  map(gm_to) %>%
+  unlist()
+
+msg_from <- msgs %>%
+  map(gm_from) %>%
+  unlist()
+
+msg_subject <- msgs %>%
+  map(gm_subject) %>%
+  unlist()
+
+
+#get datetime info, store in vector
+
+Sean_Donovan_df <- tibble(msg_to,
+                  msg_from,
+                  msg_subject,
+                  msg_datetime,
+                  msg_body)
+
+
+
+```
+```{r James Paul Smith}
+threads <- gm_threads(num_results = 700)
+
+thread_ids <- gm_id(threads)
+
+#extract all the thread ids
+threads_expanded <- map(thread_ids, gm_thread)
+
+msgs <- vector()
+for(i in (1:length(threads_expanded))){
+  msgs <- append(msgs, values = threads_expanded[[i]]$messages)
+}
+#extract all the individual messages from each thread
+
+msg_ids <- unlist(map(msgs, gm_id))
+#get the message id for each message
+
+msg_body <- vector()
+
+#get message body, store in vector
+for(msg in msgs){
+  body <- gm_body(msg)
+  attchmnt <- nrow(gm_attachments(msg))
+  if(length(body) != 0 && attchmnt == 0){
+#does not return a null value, rather an empty list or list
+
+#body is not 0 (there is something there) and there are no attachments, 
+
+#add it to vector
+
+msg_body <- append(msg_body, body)
+#if there is no to info, fill that spot with an empty space
+  }
+  else{
+    msg_body <- append(msg_body, "")
+    #if there is no attachment but the body is also empty add "" to the list
+  }
+}
+
+msg_body <- unlist(msg_body)
+
+msg_datetime <- msgs %>%
+  map(gm_date) %>%
+  unlist()%>%
+  dmy_hms()
+
+msg_to <- msgs %>%
+  map(gm_to) %>%
+  unlist()
+
+msg_from <- msgs %>%
+  map(gm_from) %>%
+  unlist()
+
+msg_subject <- msgs %>%
+  map(gm_subject) %>%
+  unlist()
+
+
+#get datetime info, store in vector
+
+James_Smith_df <- tibble(msg_to,
+                  msg_from,
+                  msg_subject,
+                  msg_datetime,
+                  msg_body)
+
+#all the other possible categories, e.g., to, from, cc, subject, etc.,either use a similar for loop or a map call
+```
+```{r Emily Smith}
+threads <- gm_threads(num_results = 700)
+
+thread_ids <- gm_id(threads)
+
+#extract all the thread ids
+threads_expanded <- map(thread_ids, gm_thread)
+
+msgs <- vector()
+for(i in (1:length(threads_expanded))){
+  msgs <- append(msgs, values = threads_expanded[[i]]$messages)
+}
+#extract all the individual messages from each thread
+
+msg_ids <- unlist(map(msgs, gm_id))
+#get the message id for each message
+
+msg_body <- vector()
+
+#get message body, store in vector
+for(msg in msgs){
+  body <- gm_body(msg)
+  attchmnt <- nrow(gm_attachments(msg))
+  if(length(body) != 0 && attchmnt == 0){
+#does not return a null value, rather an empty list or list
+
+#body is not 0 (there is something there) and there are no attachments, 
+
+#add it to vector
+
+msg_body <- append(msg_body, body)
+#if there is no to info, fill that spot with an empty space
+  }
+  else{
+    msg_body <- append(msg_body, "")
+    #if there is no attachment but the body is also empty add "" to the list
+  }
+}
+
+msg_body <- unlist(msg_body)
+
+msg_datetime <- msgs %>%
+  map(gm_date) %>%
+  unlist()%>%
+  dmy_hms()
+
+msg_to <- msgs %>%
+  map(gm_to) %>%
+  unlist()
+
+msg_from <- msgs %>%
+  map(gm_from) %>%
+  unlist()
+
+msg_subject <- msgs %>%
+  map(gm_subject) %>%
+  unlist()
+
+
+#get datetime info, store in vector
+
+Emily_Smith_df <- tibble(msg_to,
+                  msg_from,
+                  msg_subject,
+                  msg_datetime,
+                  msg_body)
+
+#all the other possible categories, e.g., to, from, cc, subject, etc.,either use a similar for loop or a map call
+```
+```{r Madison Mitchell}
+threads <- gm_threads(num_results = 700)
+
+thread_ids <- gm_id(threads)
+
+#extract all the thread ids
+threads_expanded <- map(thread_ids, gm_thread)
+
+msgs <- vector()
+for(i in (1:length(threads_expanded))){
+  msgs <- append(msgs, values = threads_expanded[[i]]$messages)
+}
+#extract all the individual messages from each thread
+
+msg_ids <- unlist(map(msgs, gm_id))
+#get the message id for each message
+
+msg_body <- vector()
+
+#get message body, store in vector
+for(msg in msgs){
+  body <- gm_body(msg)
+  attchmnt <- nrow(gm_attachments(msg))
+  if(length(body) != 0 && attchmnt == 0){
+#does not return a null value, rather an empty list or list
+
+#body is not 0 (there is something there) and there are no attachments, 
+
+#add it to vector
+
+msg_body <- append(msg_body, body)
+#if there is no to info, fill that spot with an empty space
+  }
+  else{
+    msg_body <- append(msg_body, "")
+    #if there is no attachment but the body is also empty add "" to the list
+  }
+}
+
+msg_body <- unlist(msg_body)
+
+msg_datetime <- msgs %>%
+  map(gm_date) %>%
+  unlist()%>%
+  dmy_hms()
+
+msg_to <- msgs %>%
+  map(gm_to) %>%
+  unlist()
+
+msg_from <- msgs %>%
+  map(gm_from) %>%
+  unlist()
+
+msg_subject <- msgs %>%
+  map(gm_subject) %>%
+  unlist()
+
+
+#get datetime info, store in vector
+
+Madison_Mitchell_df <- tibble(msg_to,
+                  msg_from,
+                  msg_subject,
+                  msg_datetime,
+                  msg_body)
+
+#all the other possible categories, e.g., to, from, cc, subject, etc.,either use a similar for loop or a map call
+```
+```{r Marissa Price}
+threads <- gm_threads(num_results = 700)
+
+thread_ids <- gm_id(threads)
+
+#extract all the thread ids
+threads_expanded <- map(thread_ids, gm_thread)
+
+msgs <- vector()
+for(i in (1:length(threads_expanded))){
+  msgs <- append(msgs, values = threads_expanded[[i]]$messages)
+}
+#extract all the individual messages from each thread
+
+msg_ids <- unlist(map(msgs, gm_id))
+#get the message id for each message
+
+msg_body <- vector()
+
+#get message body, store in vector
+for(msg in msgs){
+  body <- gm_body(msg)
+  attchmnt <- nrow(gm_attachments(msg))
+  if(length(body) != 0 && attchmnt == 0){
+#does not return a null value, rather an empty list or list
+
+#body is not 0 (there is something there) and there are no attachments, 
+
+#add it to vector
+
+msg_body <- append(msg_body, body)
+#if there is no to info, fill that spot with an empty space
+  }
+  else{
+    msg_body <- append(msg_body, "")
+    #if there is no attachment but the body is also empty add "" to the list
+  }
+}
+
+msg_body <- unlist(msg_body)
+
+msg_datetime <- msgs %>%
+  map(gm_date) %>%
+  unlist()%>%
+  dmy_hms()
+
+msg_to <- msgs %>%
+  map(gm_to) %>%
+  unlist()
+
+msg_from <- msgs %>%
+  map(gm_from) %>%
+  unlist()
+
+msg_subject <- msgs %>%
+  map(gm_subject) %>%
+  unlist()
+
+
+#get datetime info, store in vector
+
+Marissa_Price_df <- tibble(msg_to,
+                  msg_from,
+                  msg_subject,
+                  msg_datetime,
+                  msg_body)
+
+#all the other possible categories, e.g., to, from, cc, subject, etc.,either use a similar for loop or a map call
+```
+```{r Merge Dataframes}
+FINAL <- rbind(Madison_Mitchell_df,
+               Sean_Donovan_df,
+               Emily_Smith_df,
+               James_Smith_df,
+               Marissa_Price_df
+               )
+
+#Remove HTML Formatting from Dataset
+FINAL$msg_body <- gsub("<.*>",
+                       "HTML",
+                       FINAL$msg_body)
+
+#write into excel file
+write_csv(FINAL,
+           "FINALDTC.csv")
+
+
+
+```
+
+
+# Interrater Reliability for Instagram
+```{r Instagram E-Cigarette Posts}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+Instagram_Fall21_FinalCoding <- read_excel("~/Desktop/USC/TIME/Instagram/Instagram_Fall21_FinalCoding.xlsx")
+
+#E-Cigarettes
+Instagram_Fall21_FinalCoding<-Instagram_Fall21_FinalCoding[!(
+Instagram_Fall21_FinalCoding$Hashtag=="swisher" | Instagram_Fall21_FinalCoding$Hashtag=="backwoods" | Instagram_Fall21_FinalCoding$Hashtag=="juullife"),]
+
+#Product appearance
+kappa2(Instagram_Fall21_FinalCoding[, c("ProductAppearance_MA",
+                                 "ProductAppearance_CP")],
+                                 weight = "unweighted")
+PA <- Instagram_Fall21_FinalCoding %>% select(ProductAppearance_MA, 
+       ProductAppearance_CP)
+agree(PA)
+
+#Nicotine Concentration
+kappa2(Instagram_Fall21_FinalCoding[, c("NicotineConcentration_MA",
+                                 "NicotineConcentration_CP")],
+                                 weight = "unweighted")
+
+NC <- Instagram_Fall21_FinalCoding %>% select(NicotineConcentration_MA, 
+       NicotineConcentration_CP)
+agree(NC)
+
+#User Experience
+kappa2(Instagram_Fall21_FinalCoding[, c("UserExperience_MA",
+                                 "UserExperience_CP")],
+                                 weight = "unweighted")
+
+UE <- Instagram_Fall21_FinalCoding %>% select(UserExperience_MA, 
+       UserExperience_CP)
+agree(UE)
+
+#Flavors Fruit
+kappa2(Instagram_Fall21_FinalCoding[, c("Flavors.Fruit_MA",
+                                 "Flavors.Fruit_CP")],
+                                 weight = "unweighted")
+
+Fruit <- Instagram_Fall21_FinalCoding %>% select(Flavors.Fruit_MA, 
+       Flavors.Fruit_CP)
+agree(Fruit)
+
+#Flavors Tobacco
+kappa2(Instagram_Fall21_FinalCoding[, c("Flavors.Tobacco_MA",
+                                 "Flavors.Tobacco_CP")],
+                                 weight = "unweighted")
+
+TO <- Instagram_Fall21_FinalCoding %>% select(Flavors.Tobacco_MA, 
+       Flavors.Tobacco_CP)
+agree(TO)
+
+#Flavors Sweet
+kappa2(Instagram_Fall21_FinalCoding[, c("Flavors.Sweet_MA",
+                                 "Flavors.Sweet_CP")],
+                                 weight = "unweighted")
+
+Sweet <- Instagram_Fall21_FinalCoding %>% select(Flavors.Sweet_MA, 
+       Flavors.Sweet_CP)
+agree(Sweet)
+
+#Flavors Menthol
+kappa2(Instagram_Fall21_FinalCoding[, c("Flavors.Menthol_MA",
+                                 "Flavors.Menthol_CP")],
+                                 weight = "unweighted")
+
+Men <- Instagram_Fall21_FinalCoding %>% select(Flavors.Menthol_MA, 
+       Flavors.Menthol_CP)
+agree(Men)
+
+#Vaping Meme
+kappa2(Instagram_Fall21_FinalCoding[, c("VapingMeme_MA",
+                                 "VapingMeme_CP")],
+                                 weight = "unweighted")
+
+Meme <- Instagram_Fall21_FinalCoding %>% select(VapingMeme_MA, 
+       VapingMeme_CP)
+agree(Meme)
+
+
+#Nature
+kappa2(Instagram_Fall21_FinalCoding[, c("Nature_MA",
+                                 "Nature_CP")],
+                                 weight = "unweighted")
+
+Nat <- Instagram_Fall21_FinalCoding %>% select(Nature_MA, 
+       Nature_CP)
+agree(Nat)
+
+#Promotion
+kappa2(Instagram_Fall21_FinalCoding[, c("Promotion_MA",
+                                 "Promotion_CP")],
+                                 weight = "unweighted")
+
+Promo <- Instagram_Fall21_FinalCoding %>% select(Promotion_MA, 
+       Promotion_CP)
+agree(Promo)
+
+#Marijuana
+kappa2(Instagram_Fall21_FinalCoding[, c("Marijuana_MA",
+                                 "Marijuana_CP")],
+                                 weight = "unweighted")
+
+Mary <- Instagram_Fall21_FinalCoding %>% select(Marijuana_MA, 
+       Marijuana_CP)
+agree(Mary)
+
+#Cartoon
+kappa2(Instagram_Fall21_FinalCoding[, c("Cartoon_MA",
+                                 "Cartoon_CP")],
+                                 weight = "unweighted")
+
+Cart <- Instagram_Fall21_FinalCoding %>% select(Cartoon_MA, 
+       Cartoon_CP)
+agree(Cart)
+
+#Vaping Expectancies
+kappa2(Instagram_Fall21_FinalCoding[, c("VapingExpectancies_MA",
+                                 "VapingExpectancies_CP")],
+                                 weight = "unweighted")
+Expect <- Instagram_Fall21_FinalCoding %>% select(VapingExpectancies_MA, 
+       VapingExpectancies_CP)
+agree(Expect)
+
+#Cessation
+kappa2(Instagram_Fall21_FinalCoding[, c("Cessation_MA",
+                                 "Cessation_CP")],
+                                 weight = "unweighted")
+
+Ces <- Instagram_Fall21_FinalCoding %>% select(Cessation_MA, 
+       Cessation_CP)
+agree(Ces)
+
+#Youth
+kappa2(Instagram_Fall21_FinalCoding[, c("Youth_MA",
+                                 "Youth_CP")],
+                                 weight = "unweighted")
+
+Youth <- Instagram_Fall21_FinalCoding %>% select(Youth_MA, 
+       Youth_CP)
+agree(Youth)
+
+#Socializing
+kappa2(Instagram_Fall21_FinalCoding[, c("Socializing_MA",
+                                 "Socializing_CP")],
+                                 weight = "unweighted")
+
+Soc <- Instagram_Fall21_FinalCoding %>% select(Socializing_MA, 
+      Socializing_CP)
+agree(Soc)
+
+#Vaping Enthusiast
+kappa2(Instagram_Fall21_FinalCoding[, c("VapingEnthusiast_MA",
+                                 "VapingEnthusiast_CP")],
+                                 weight = "unweighted")
+
+VE <- Instagram_Fall21_FinalCoding %>% select(VapingEnthusiast_MA, 
+      VapingEnthusiast_CP)
+agree(VE)
+
+#Commercial Account
+kappa2(Instagram_Fall21_FinalCoding[, c("CommercialAccount_MA",
+                                 "CommercialAccount_CP")],
+                                 weight = "unweighted")
+
+CA <- Instagram_Fall21_FinalCoding %>% select(CommercialAccount_MA, 
+      CommercialAccount_CP)
+agree(CA)
+
+#Average User
+kappa2(Instagram_Fall21_FinalCoding[, c("AverageUser_MA",
+                                 "AverageUser_CP")],
+                                 weight = "unweighted")
+
+AU <- Instagram_Fall21_FinalCoding %>% select(AverageUser_MA, 
+      AverageUser_CP)
+agree(AU)
+
+
+
+```
+```{r Instagram Little Cigar Posts}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+Instagram_Fall21_FinalCoding <- read_excel("~/Desktop/USC/TIME/Instagram/DATA/Instagram_Fall21_FinalCoding.xlsx")
+
+#E-Cigarettes
+Instagram_Fall21_FinalCoding<-Instagram_Fall21_FinalCoding[(
+Instagram_Fall21_FinalCoding$Hashtag=="swisher" | Instagram_Fall21_FinalCoding$Hashtag=="backwoods"), ]
+
+#Product appearance
+kappa2(Instagram_Fall21_FinalCoding[, c("ProductAppearance_MA",
+                                 "ProductAppearance_CP")],
+                                 weight = "unweighted")
+PA <- Instagram_Fall21_FinalCoding %>% select(ProductAppearance_MA, 
+       ProductAppearance_CP)
+agree(PA)
+
+#Nicotine Concentration
+kappa2(Instagram_Fall21_FinalCoding[, c("NicotineConcentration_MA",
+                                 "NicotineConcentration_CP")],
+                                 weight = "unweighted")
+
+NC <- Instagram_Fall21_FinalCoding %>% select(NicotineConcentration_MA, 
+       NicotineConcentration_CP)
+agree(NC)
+
+#User Experience
+kappa2(Instagram_Fall21_FinalCoding[, c("UserExperience_MA",
+                                 "UserExperience_CP")],
+                                 weight = "unweighted")
+
+UE <- Instagram_Fall21_FinalCoding %>% select(UserExperience_MA, 
+       UserExperience_CP)
+agree(UE)
+
+#Flavors Fruit
+kappa2(Instagram_Fall21_FinalCoding[, c("Flavors.Fruit_MA",
+                                 "Flavors.Fruit_CP")],
+                                 weight = "unweighted")
+
+Fruit <- Instagram_Fall21_FinalCoding %>% select(Flavors.Fruit_MA, 
+       Flavors.Fruit_CP)
+agree(Fruit)
+
+#Flavors Tobacco
+kappa2(Instagram_Fall21_FinalCoding[, c("Flavors.Tobacco_MA",
+                                 "Flavors.Tobacco_CP")],
+                                 weight = "unweighted")
+
+TO <- Instagram_Fall21_FinalCoding %>% select(Flavors.Tobacco_MA, 
+       Flavors.Tobacco_CP)
+agree(TO)
+
+#Flavors Sweet
+kappa2(Instagram_Fall21_FinalCoding[, c("Flavors.Sweet_MA",
+                                 "Flavors.Sweet_CP")],
+                                 weight = "unweighted")
+
+Sweet <- Instagram_Fall21_FinalCoding %>% select(Flavors.Sweet_MA, 
+       Flavors.Sweet_CP)
+agree(Sweet)
+
+#Flavors Menthol
+kappa2(Instagram_Fall21_FinalCoding[, c("Flavors.Menthol_MA",
+                                 "Flavors.Menthol_CP")],
+                                 weight = "unweighted")
+
+Men <- Instagram_Fall21_FinalCoding %>% select(Flavors.Menthol_MA, 
+       Flavors.Menthol_CP)
+agree(Men)
+
+#Vaping Meme
+kappa2(Instagram_Fall21_FinalCoding[, c("VapingMeme_MA",
+                                 "VapingMeme_CP")],
+                                 weight = "unweighted")
+
+Meme <- Instagram_Fall21_FinalCoding %>% select(VapingMeme_MA, 
+       VapingMeme_CP)
+agree(Meme)
+
+
+#Nature
+kappa2(Instagram_Fall21_FinalCoding[, c("Nature_MA",
+                                 "Nature_CP")],
+                                 weight = "unweighted")
+
+Nat <- Instagram_Fall21_FinalCoding %>% select(Nature_MA, 
+       Nature_CP)
+agree(Nat)
+
+#Promotion
+kappa2(Instagram_Fall21_FinalCoding[, c("Promotion_MA",
+                                 "Promotion_CP")],
+                                 weight = "unweighted")
+
+Promo <- Instagram_Fall21_FinalCoding %>% select(Promotion_MA, 
+       Promotion_CP)
+agree(Promo)
+
+#Marijuana
+kappa2(Instagram_Fall21_FinalCoding[, c("Marijuana_MA",
+                                 "Marijuana_CP")],
+                                 weight = "unweighted")
+
+Mary <- Instagram_Fall21_FinalCoding %>% select(Marijuana_MA, 
+       Marijuana_CP)
+agree(Mary)
+
+#Cartoon
+kappa2(Instagram_Fall21_FinalCoding[, c("Cartoon_MA",
+                                 "Cartoon_CP")],
+                                 weight = "unweighted")
+
+Cart <- Instagram_Fall21_FinalCoding %>% select(Cartoon_MA, 
+       Cartoon_CP)
+agree(Cart)
+
+#Vaping Expectancies
+kappa2(Instagram_Fall21_FinalCoding[, c("VapingExpectancies_MA",
+                                 "VapingExpectancies_CP")],
+                                 weight = "unweighted")
+Expect <- Instagram_Fall21_FinalCoding %>% select(VapingExpectancies_MA, 
+       VapingExpectancies_CP)
+agree(Expect)
+
+#Cessation
+kappa2(Instagram_Fall21_FinalCoding[, c("Cessation_MA",
+                                 "Cessation_CP")],
+                                 weight = "unweighted")
+
+Ces <- Instagram_Fall21_FinalCoding %>% select(Cessation_MA, 
+       Cessation_CP)
+agree(Ces)
+
+#Youth
+kappa2(Instagram_Fall21_FinalCoding[, c("Youth_MA",
+                                 "Youth_CP")],
+                                 weight = "unweighted")
+
+Youth <- Instagram_Fall21_FinalCoding %>% select(Youth_MA, 
+       Youth_CP)
+agree(Youth)
+
+#Socializing
+kappa2(Instagram_Fall21_FinalCoding[, c("Socializing_MA",
+                                 "Socializing_CP")],
+                                 weight = "unweighted")
+
+Soc <- Instagram_Fall21_FinalCoding %>% select(Socializing_MA, 
+      Socializing_CP)
+agree(Soc)
+
+#Vaping Enthusiast
+kappa2(Instagram_Fall21_FinalCoding[, c("VapingEnthusiast_MA",
+                                 "VapingEnthusiast_CP")],
+                                 weight = "unweighted")
+
+VE <- Instagram_Fall21_FinalCoding %>% select(VapingEnthusiast_MA, 
+      VapingEnthusiast_CP)
+agree(VE)
+
+#Commercial Account
+kappa2(Instagram_Fall21_FinalCoding[, c("CommercialAccount_MA",
+                                 "CommercialAccount_CP")],
+                                 weight = "unweighted")
+
+CA <- Instagram_Fall21_FinalCoding %>% select(CommercialAccount_MA, 
+      CommercialAccount_CP)
+agree(CA)
+
+#Average User
+kappa2(Instagram_Fall21_FinalCoding[, c("AverageUser_MA",
+                                 "AverageUser_CP")],
+                                 weight = "unweighted")
+
+AU <- Instagram_Fall21_FinalCoding %>% select(AverageUser_MA, 
+      AverageUser_CP)
+agree(AU)
+
+
+
+```
+
+# Interrater Reliability for Health Effects
+```{r ALL POSTS HE}
+library(readxl)
+library(irr)
+
+#All posts
+HealthEffects_Convergence <- read_excel("~/Desktop/HealthEffects_Convergence.xlsm")
+
+
+#Motivations
+kappa2(HealthEffects_Convergence[, c("Motivations_Scott",
+                                 "Motivations_Megan")],
+                                 weight = "unweighted")
+
+
+#Consequences
+kappa2(HealthEffects_Convergence[, c("Consequences_Scott",
+                                 "Consequences_Megan")],
+                                 weight = "unweighted")
+```
+
+# Interrater Reliability for YouTube
+```{r Overall}
+library(readxl)
+library(irr)
+
+YouTube_Fall21_FinalCoding <- read_excel("~/Desktop/USC/TIME/YouTube/YouTube_Data/YouTube_Fall21_FinalCoding.xlsx")
+
+#warning
+kappa2(YouTube_Fall21_FinalCoding[, c("warning_OZ",
+                                 "warning_CP")],
+                                 weight = "unweighted")
+
+Warn <- YouTube_Fall21_FinalCoding %>% select(warning_OZ, 
+      warning_CP)
+agree(Warn)
+
+# Compute kapa
+kappam.fleiss(YouTube_Fall21_FinalCoding[, c("warning_OZ",
+                                 "warning_CP")])
+
+
+#Product design features
+kappa2(YouTube_Fall21_FinalCoding[, c("Pdesign_OZ",
+                                 "Pdesign_CP")],
+                                 weight = "unweighted")
+
+PDF <- YouTube_Fall21_FinalCoding %>% select(Pdesign_OZ, 
+      Pdesign_CP)
+agree(PDF)
+
+
+#Flavors
+kappa2(YouTube_Fall21_FinalCoding[, c("flavors_OZ",
+                                 "flavors_CP")],
+                                 weight = "unweighted")
+
+Flav <- YouTube_Fall21_FinalCoding %>% select(flavors_OZ, 
+      flavors_CP)
+agree(Flav)
+
+kappam.fleiss(YouTube_Fall21_FinalCoding[, c("flavors_OZ",
+                                 "flavors_CP")])
+
+#Personal
+kappa2(YouTube_Fall21_FinalCoding[, c("personal_OZ",
+                                 "personal_CP")],
+                                 weight = "unweighted")
+
+Personal <- YouTube_Fall21_FinalCoding %>% select(personal_OZ, 
+      personal_CP)
+agree(Personal)
+
+kappam.fleiss(YouTube_Fall21_FinalCoding[,c("personal_OZ",
+                                 "personal_CP")])
+
+#Adult Smokers
+kappa2(YouTube_Fall21_FinalCoding[, c("adult_OZ",
+                                 "adult_CP")],
+                                 weight = "unweighted")
+
+AS <- YouTube_Fall21_FinalCoding %>% select(adult_OZ, 
+      adult_CP)
+agree(AS)
+
+kappam.fleiss(YouTube_Fall21_FinalCoding[,c("adult_OZ",
+                                 "adult_CP")])
+
+#Youth use
+kappa2(YouTube_Fall21_FinalCoding[, c("youth_OZ",
+                                 "youth_CP")],
+                                 weight = "unweighted")
+
+YU <- YouTube_Fall21_FinalCoding %>% select(youth_OZ, 
+      youth_CP)
+agree(YU)
+
+kappam.fleiss(YouTube_Fall21_FinalCoding[,c("youth_OZ",
+                                 "youth_CP")])
+
+#Instructional
+kappa2(YouTube_Fall21_FinalCoding[, c("instructional_OZ",
+                                 "instructional_CP")],
+                                 weight = "unweighted")
+
+Instructional <- YouTube_Fall21_FinalCoding %>% select(instructional_OZ, 
+      instructional_CP)
+agree(Instructional)
+
+kappam.fleiss(YouTube_Fall21_FinalCoding[,c("instructional_OZ",
+                                 "instructional_CP")])
+
+#Lifestyle
+kappa2(YouTube_Fall21_FinalCoding[, c("lifestyle_OZ",
+                                 "lifestyle_CP")],
+                                 weight = "unweighted")
+
+Life <- YouTube_Fall21_FinalCoding %>% select(lifestyle_OZ, 
+      lifestyle_CP)
+agree(Life)
+
+kappam.fleiss(YouTube_Fall21_FinalCoding[,c("lifestyle_OZ",
+                                 "lifestyle_CP")])
+
+#Misleading
+kappa2(YouTube_Fall21_FinalCoding[, c("misleading_OZ",
+                                 "misleading_CP")],
+                                 weight = "unweighted")
+
+Mis <- YouTube_Fall21_FinalCoding %>% select(misleading_OZ, 
+      misleading_CP)
+agree(Mis)
+
+#Protobacco
+kappa2(YouTube_Fall21_FinalCoding[, c("Pro_OZ",
+                                 "Pro_CP")],
+                                 weight = "unweighted")
+
+Pro <- YouTube_Fall21_FinalCoding %>% select(Pro_OZ, 
+      Pro_CP)
+agree(Pro)
+
+
+#antitobacco
+kappa2(YouTube_Fall21_FinalCoding[, c("antitobacco_OZ",
+                                 "antitobacco_CP")],
+                                 weight = "unweighted")
+
+Anti <- YouTube_Fall21_FinalCoding %>% select(antitobacco_OZ, 
+      antitobacco_CP)
+agree(Anti)
+
+#Cessation
+kappa2(YouTube_Fall21_FinalCoding[, c("cessation_OZ",
+                                 "cessation_CP")],
+                                 weight = "unweighted")
+
+Ces <- YouTube_Fall21_FinalCoding %>% select(cessation_OZ, 
+      cessation_CP)
+agree(Ces)
+
+#branding
+kappa2(YouTube_Fall21_FinalCoding[, c("branding_OZ",
+                                 "branding_CP")],
+                                 weight = "unweighted")
+
+Brand <- YouTube_Fall21_FinalCoding %>% select(branding_OZ, 
+      branding_CP)
+agree(Brand)
+
+kappam.fleiss(YouTube_Fall21_FinalCoding[,c("branding_OZ",
+                                 "branding_CP")])
+
+#Tobacco use
+kappa2(YouTube_Fall21_FinalCoding[, c("use_OZ",
+                                 "use_CP")],
+                                 weight = "unweighted")
+
+TO <- YouTube_Fall21_FinalCoding %>% select(use_OZ, 
+      use_CP)
+agree(TO)
+
+kappam.fleiss(YouTube_Fall21_FinalCoding[,c("use_OZ",
+                                 "use_CP")])
+
+#Implied tobacco use
+kappa2(YouTube_Fall21_FinalCoding[, c("implied_OZ",
+                                 "implied_CP")],
+                                 weight = "unweighted")
+
+ITO <- YouTube_Fall21_FinalCoding %>% select(implied_OZ, 
+      implied_CP)
+agree(ITO)
+
+#paraphernalia
+kappa2(YouTube_Fall21_FinalCoding[, c("paraphernalia_OZ",
+                                 "paraphernalia_CP")],
+                                 weight = "unweighted")
+
+para <- YouTube_Fall21_FinalCoding %>% select(paraphernalia_OZ, 
+      paraphernalia_CP)
+agree(para)
+
+
+#Individual testimonies
+kappa2(YouTube_Fall21_FinalCoding[, c("testimonials_OZ",
+                                      "testimonials_CP")],
+                                 weight = "unweighted")
+
+test <- YouTube_Fall21_FinalCoding %>% select(testimonials_OZ, 
+      testimonials_CP)
+agree(test)
+
+#Promotional
+kappa2(YouTube_Fall21_FinalCoding[, c("promotional_OZ",
+                                      "promotional_CP")],
+                                 weight = "unweighted")
+
+promo <- YouTube_Fall21_FinalCoding %>% select(promotional_OZ, 
+      promotional_CP)
+agree(promo)
+
+
+
+```
+```{r Positive and negative agreement}
+library(readxl)
+library(irr)
+
+YouTube_Fall21_FinalCoding <- read_excel("~/Desktop/USC/TIME/YouTube/YouTube_Data/YouTube_Fall21_FinalCoding.xlsx")
+
+YouTube_Fall21_FinalCoding <- YouTube_Fall21_FinalCoding[-c(87, 242), ]
+
+#INSERT THEME HERE
+Pro_OZ <- YouTube_Fall21_FinalCoding$Pro_OZ
+Pro_CP <- YouTube_Fall21_FinalCoding$Pro_CP
+data.tab <- table(Pro_OZ, 
+                  Pro_CP)
+data.tab
+
+# data matrix
+data.tab <- matrix(c(25,2,5,225),2,2, byrow=T)
+data.tab
+
+# just popa and pona
+popana <- function(abcd_table){
+    a = abcd_table[1,1] ; b = abcd_table[1,2] ; c = abcd_table[2,1] ; d = abcd_table[2,2]
+    popa <- 2*a/(2*a+b+c)
+    pona <- 2*d/(2*d+b+c)
+    list("Proportion of positive agreement" = popa, "Proportion of negative agreement" = pona)
+}
+
+popana(data.tab)
+
+popana.ci <- function(abcd_table, alpha1 = 0.25, alpha2=alpha1, alpha3=alpha1, alpha4=alpha1, confidence=.95, K=10^6, op=c(1,1)){
+    # implements Bayesian CI for popa and pona from Graham & Bull (1998) - technically this is posterior/credibility interval
+    # uses dirichlet prior alpha1 = alpha2=alpha3=alpha4=0.25 by default for popa and pona
+    # default beta(1,1) for overall agreement
+    a = abcd_table[1,1] ; b = abcd_table[1,2] ; c = abcd_table[2,1] ; d = abcd_table[2,2]
+    popa <- 2*a/(2*a+b+c)
+    pona <- 2*d/(2*d+b+c)
+    pi1_draws <- rbeta(K, a + alpha1, b + c + d + alpha2 + alpha3 + alpha4)
+    beta4_draws <- rbeta(K, d + alpha4, b + c + alpha2 + alpha3)    
+    pi4_draws <- (1 - pi1_draws) * beta4_draws 
+    pi1_pos <- 2 * pi1_draws / (pi1_draws + 1 - pi4_draws)
+    pi4_pos <- 2 * pi4_draws / (pi4_draws + 1 - pi1_draws)
+    qts <- c((1-confidence)/2, 1- (1-confidence)/2)
+    # Egon-Pearson corrected Chi-square test of independence (NHST for agreement)
+    uncorrected.test <- suppressWarnings(chisq.test(abcd_table, simulate.p.value=F, correct=F))
+    corrected.stat <- uncorrected.test$stat[[1]] * (a+b+c+d-1)/(a+b+c+d)
+    pval <- pchisq(corrected.stat, uncorrected.test$par, lower.tail = FALSE)
+    epc.list <- list('Egon Pearson corrected Chi-Square (1 d.f.)' = corrected.stat, 'p'=pval)
+    list("Proportion of overall agreement" = (a+d)/(a+b+c+d), "95% CI for overall agreement" = qbeta(qts, a+d+op[1], b+c+op[2]),
+      "Proportion of positive agreement (popa)" = popa, '95% CI for popa' = quantile(pi1_pos, qts),
+      "Proportion of negative agreement" = pona, '95% CI for pona' = quantile(pi4_pos, qts),
+      "Difference in agreement" = popa - pona, '95% CI for difference' = quantile(pi1_pos - pi4_pos, qts),
+      "Test of agreement" = epc.list)
+}
+
+popana.ci(data.tab)
+
+```
+
+
+# Interrater Reliability for TikTok
+```{r Juul}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+# Tobacco Use
+TB <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "TobaccoUse")
+
+
+TB <- TB %>% select(TobaccoUse_MA,
+              TobaccoUse_Ali,
+              TobaccoUse_JT)
+agree(TB)
+
+# Flavors
+Flav <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "Flavors")
+
+
+Flav  <- Flav  %>% select(Flavors_MA,
+              Flavors_Ali,
+              Flavors_JT)
+agree(Flav)
+
+# Addiction
+Addiction <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "Addiction")
+
+
+Addiction  <- Addiction  %>% select(Addiction_MA,
+              Addiction_Ali,
+              Addiction_JT)
+agree(Addiction)
+
+# YouthUse
+YouthUse <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "YouthUse")
+
+
+YouthUse  <- YouthUse  %>% select(YouthUse_MA,
+              YouthUse_Ali,
+              YouthUse_JT)
+agree(YouthUse)
+
+# Health Warning
+HealthWarning <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "HealthWarning")
+
+
+HealthWarning  <- HealthWarning  %>% select(HealthWarnings_MA,
+              HealthWarnings_Ali,
+              HealthWarnings_JT)
+agree(HealthWarning)
+
+# Instructional
+Instructional <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "Instructional")
+
+
+Instructional  <- Instructional  %>% select(Instructional_MA,
+              Instructional_Ali,
+              Instructional_JT)
+agree(Instructional)
+
+# Vape Tricks
+VapeTricks <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "VapeTricks")
+
+
+VapeTricks  <- VapeTricks  %>% select(VapeTricks_MA,
+              VapeTricks_Ali,
+              VapeTricks_JT)
+agree(VapeTricks)
+
+# Cessation
+Cessation <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "Cessation")
+
+
+Cessation  <- Cessation  %>% select(Cessation_MA,
+              Cessation_Ali,
+              Cessation_JT)
+agree(Cessation)
+
+# Humor
+Humor <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "Humor")
+
+
+Humor  <- Humor  %>% select(Humor_MA,
+              Humor_Ali,
+              Humor_JT)
+agree(Humor)
+
+# NicotineConcentration
+NicotineConcentration <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "NicotineConcentration")
+
+
+NicotineConcentration  <- NicotineConcentration  %>% select(NicotineConcentration_MA,
+              NicotineConcentration_Ali,
+              NicotineConcentration_JT)
+agree(NicotineConcentration)
+
+# RiskTaking
+RiskTaking <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "RiskTaking")
+
+
+RiskTaking  <- RiskTaking  %>% select(RiskTaking_MA,
+              RiskTaking_Ali,
+              RiskTaking_JT)
+agree(RiskTaking)
+
+# Polysubuse
+Polysubuse <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "Polysubuse")
+
+
+Polysubuse  <- Polysubuse  %>% select(Polysubuse_MA,
+              Polysubuse_Ali,
+              Polysubuse_JT)
+agree(Polysubuse)
+
+# Music
+Music <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "Music")
+
+
+Music  <- Music  %>% select(Music_MA,
+              Music_Ali,
+              Music_JT)
+agree(Music)
+
+# ProductReview
+ProductReview <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "ProductReview")
+
+
+ProductReview  <- ProductReview  %>% select(ProductReview_MA,
+              ProductReview_Ali,
+              ProductReview_JT)
+agree(ProductReview)
+
+# Promotional
+Promotional <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "Promotional")
+
+
+Promotional  <- Promotional  %>% select(Promotional_MA,
+              Promotional_Ali,
+              Promotional_JT)
+agree(Promotional)
+
+# Price
+Price <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "Price")
+
+
+Price  <- Price  %>% select(Price_MA,
+              Price_Ali,
+              Price_JT)
+agree(Price)
+
+# Youth
+Youth <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "Youth")
+
+
+Youth  <- Youth  %>% select(Youth_MA,
+              Youth_Ali,
+              Youth_JT)
+agree(Youth)
+
+# Crowds
+Crowds <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "Crowds")
+
+
+Crowds  <- Crowds  %>% select(Crowds_MA,
+              Crowds_Ali,
+              Crowds_JT)
+agree(Crowds)
+
+# Other
+Other <- read_excel("~/Desktop/USC/TIME/Tiktok/Juul_Fall22/juul_FINAL.xlsx", 
+    sheet = "Other")
+
+
+Other  <- Other  %>% select(Other_MA,
+              Other_Ali,
+              Other_JT)
+agree(Other)
+
+
+```
+```{r Backwoods}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+# Cigar Use
+CU <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Cigar Use")
+
+
+CU <- CU %>% select(CigarUse_KY,
+              CigarUse_OU)
+agree(CU)
+
+# Flavors
+Flav <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Flavors")
+
+
+Flav  <- Flav  %>% select(Flavors_KY,
+              Flavors_OU)
+agree(Flav)
+
+# Addiction
+Addiction <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Addiction")
+
+
+Addiction  <- Addiction  %>% select(Addiction_KY,
+              Addiction_OU)
+agree(Addiction)
+
+# YouthUse
+YouthUse <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "YouthUse")
+
+
+YouthUse  <- YouthUse  %>% select(YouthUse_KY,
+              YouthUse_OU)
+agree(YouthUse)
+
+# Health Warning
+HealthWarning <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Health Warnings")
+
+
+HealthWarning  <- HealthWarning  %>% select(HealthWarnings_KY,
+              HealthWarnings_OU)
+agree(HealthWarning)
+
+# Smoke Tricks
+SmokeTricks <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Smoke Tricks")
+
+
+SmokeTricks  <- SmokeTricks  %>% select(SmokeTricks_KY,
+              SmokeTricks_OU)
+agree(SmokeTricks)
+
+# Cessation
+Cessation <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Cessation")
+
+
+Cessation  <- Cessation  %>% select(Cessation_KY,
+              Cessation_OU)
+agree(Cessation)
+
+# Humor
+Humor <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Humor")
+
+Humor  <- Humor  %>% select(Humor_KY,
+              Humor_OU)
+agree(Humor)
+
+# RiskTaking
+RiskTaking <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Risk Taking")
+
+
+RiskTaking  <- RiskTaking  %>% select(RiskTaking_KY,
+              RiskTaking_OU)
+agree(RiskTaking)
+
+# Polysubuse
+Polysubuse <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Poly Sub")
+
+
+Polysubuse  <- Polysubuse  %>% select(PolySub_KY,
+              PolySub_OU)
+agree(Polysubuse)
+
+# Music
+Music <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Music")
+
+
+Music  <- Music  %>% select(Music_KY,
+              Music_OU)
+agree(Music)
+
+# ProductReview
+ProductReview <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Product Review")
+
+
+ProductReview  <- ProductReview  %>% select(ProductReview_KY,
+              ProductReview_OU)
+agree(ProductReview)
+
+# Promotional
+Promotional <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Promotional")
+
+
+Promotional  <- Promotional  %>% select(Promotional_KY,
+              Promotional_OU)
+agree(Promotional)
+
+# Price
+Price <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Price")
+
+
+Price  <- Price  %>% select(Price_KY,
+              Price_OU)
+agree(Price)
+
+# Branding
+Branding <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Branding")
+
+
+Branding  <- Branding  %>% select(Branding_KY,
+              Branding_OU)
+agree(Branding)
+
+# PS_Negative
+PS_Negative <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "PS_Negative")
+
+
+PS_Negative  <- PS_Negative  %>% select(PS_Negative_KY,
+              PS_Negative_OU)
+agree(PS_Negative)
+
+# PS_Positive
+PS_Positive <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "PS_Positive")
+
+
+PS_Positive  <- PS_Positive %>% select(PS_Positive_KY,
+              PS_Positive_OU)
+agree(PS_Positive)
+
+# ProductComparison
+ProductComparison <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "ProductComparison")
+
+
+ProductComparison  <- ProductComparison %>% select(ProductComparison_KY,
+              ProductComparison_OU)
+agree(ProductComparison)
+
+# Paraphernalia
+Paraphernalia <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Paraphernalia")
+
+
+Paraphernalia  <- Paraphernalia %>% select(Paraphernalia_KY,
+              Paraphernalia_OU)
+agree(Paraphernalia)
+
+# BluntRolling
+BluntRolling <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "BluntRolling")
+
+
+BluntRolling  <- BluntRolling %>% select(BluntRolling_KY,
+              BluntRolling_OU)
+agree(BluntRolling)
+
+# TobaccoPresence
+TobaccoPresence <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "TobaccoPresence")
+
+
+TobaccoPresence  <- TobaccoPresence %>% select(TobaccoPresence_KY,
+              TobaccoPresence_OU)
+agree(TobaccoPresence)
+
+# PopCulture
+PopCulture <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "PopCulture")
+
+
+PopCulture  <- PopCulture %>% select(PopCulture_KY,
+              PopCulture_OU)
+agree(PopCulture)
+
+# NonTobacco
+NonTobacco <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "NonTobacco")
+
+
+NonTobacco  <- NonTobacco %>% select(NonTobacco_KY,
+              NonTobacco_OU)
+agree(NonTobacco)
+
+# Youth
+Youth <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Youth")
+
+
+Youth  <- Youth  %>% select(Youth_KY,
+              Youth_OU)
+agree(Youth)
+
+# Crowds
+Crowds <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Crowds")
+
+
+Crowds  <- Crowds  %>% select(Crowds_KY,
+              Crowds_OU)
+agree(Crowds)
+
+# Other
+Other <- read_excel("~/Desktop/USC/TIME/Tiktok/Backwoods_Fall22/Backwoods_FINAL.xlsx", 
+    sheet = "Other")
+
+
+Other  <- Other  %>% select(Other_KY,
+              Other_OU)
+agree(Other)
+
+
+
+
+```
+
+# Interrater Reliability for Menthol
+```{r Positive and negative agreement}
+library(readxl)
+library(irr)
+
+Menthol_Coding_FINAL <- read_excel("~/Desktop/USC/Menthol/Menthol_Coding_FINAL.xlsm", 
+    sheet = "FDA")
+
+#INSERT THEME HERE
+FDA_CP <- Menthol_Coding_FINAL$FDA_CP
+FDA_MH <- Menthol_Coding_FINAL$FDA_MH
+
+data.tab <- table(FDA_CP, 
+                  FDA_MH)
+data.tab
+
+# data matrix
+data.tab <- matrix(c(128,4,8,9),2,2, byrow=T)
+data.tab
+
+
+# just popa and pona
+popana <- function(abcd_table){
+    a = abcd_table[1,1] ; b = abcd_table[1,2] ; c = abcd_table[2,1] ; d = abcd_table[2,2]
+    popa <- 2*a/(2*a+b+c)
+    pona <- 2*d/(2*d+b+c)
+    list("Proportion of positive agreement" = popa, "Proportion of negative agreement" = pona)
+}
+
+popana(data.tab)
+
+#popana.ci <- function(abcd_table, alpha1 = 0.25, alpha2=alpha1, alpha3=alpha1, alpha4=alpha1, confidence=.95, K=10^6, op=c(1,1)){
+    # implements Bayesian CI for popa and pona from Graham & Bull (1998) - technically this is posterior/credibility interval
+    # uses dirichlet prior alpha1 = alpha2=alpha3=alpha4=0.25 by default for popa and pona
+    # default beta(1,1) for overall agreement
+    a = abcd_table[1,1] ; b = abcd_table[1,2] ; c = abcd_table[2,1] ; d = abcd_table[2,2]
+    popa <- 2*a/(2*a+b+c)
+    pona <- 2*d/(2*d+b+c)
+    pi1_draws <- rbeta(K, a + alpha1, b + c + d + alpha2 + alpha3 + alpha4)
+    beta4_draws <- rbeta(K, d + alpha4, b + c + alpha2 + alpha3)    
+    pi4_draws <- (1 - pi1_draws) * beta4_draws 
+    pi1_pos <- 2 * pi1_draws / (pi1_draws + 1 - pi4_draws)
+    pi4_pos <- 2 * pi4_draws / (pi4_draws + 1 - pi1_draws)
+    qts <- c((1-confidence)/2, 1- (1-confidence)/2)
+    # Egon-Pearson corrected Chi-square test of independence (NHST for agreement)
+    uncorrected.test <- suppressWarnings(chisq.test(abcd_table, simulate.p.value=F, correct=F))
+    corrected.stat <- uncorrected.test$stat[[1]] * (a+b+c+d-1)/(a+b+c+d)
+    pval <- pchisq(corrected.stat, uncorrected.test$par, lower.tail = FALSE)
+    epc.list <- list('Egon Pearson corrected Chi-Square (1 d.f.)' = corrected.stat, 'p'=pval)
+    list("Proportion of overall agreement" = (a+d)/(a+b+c+d), "95% CI for overall agreement" = qbeta(qts, a+d+op[1], b+c+op[2]),
+      "Proportion of positive agreement (popa)" = popa, '95% CI for popa' = quantile(pi1_pos, qts),
+      "Proportion of negative agreement" = pona, '95% CI for pona' = quantile(pi4_pos, qts),
+      "Difference in agreement" = popa - pona, '95% CI for difference' = quantile(pi1_pos - pi4_pos, qts),
+      "Test of agreement" = epc.list)
+}
+
+#popana.ci(data.tab)
+
+```
+
+
+# Interrater Reliability for Substance TikTok
+```{r Overall}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+SD_TiktokTobacco <- read_excel("~/Desktop/USC/TikTok_Project/SD_TiktokTobacco.xlsx")
+
+SD_TiktokTobacco <- SD_TiktokTobacco[c(161:200),]
+
+#Use
+Use <- SD_TiktokTobacco %>% select(Use_SS, 
+      Use_NK)
+agree(Use)
+
+#Addiction
+Addiction <- SD_TiktokTobacco %>% select(Addiction_SS, 
+      Addiction_NK)
+agree(Addiction)
+
+#Youth
+Youth <- SD_TiktokTobacco %>% select(Youth_SS, 
+      Youth_NK)
+agree(Youth)
+
+#Warnings
+Warnings <- SD_TiktokTobacco %>% select(Warnings_SS, 
+      Warnings_NK)
+agree(Warnings)
+
+#Instruc
+Instruc <- SD_TiktokTobacco %>% select(Instruc_SS, 
+      Instruc_NK)
+agree(Instruc)
+
+#Cessation
+Cessation <- SD_TiktokTobacco %>% select(Cessation_SS, 
+      Cessation_NK)
+agree(Cessation)
+
+#Poly
+Poly <- SD_TiktokTobacco %>% select(Poly_SS, 
+      Poly_NK)
+agree(Poly)
+
+#Positive
+Positive <- SD_TiktokTobacco %>% select(Positive_SS, 
+      Positive_NK)
+agree(Positive)
+
+#Negative
+Negative <- SD_TiktokTobacco %>% select(Negative_SS, 
+      Negative_NK)
+agree(Negative)
+
+#Neutral
+Neutral <- SD_TiktokTobacco %>% select(Neutral_SS, 
+      Neutral_NK)
+agree(Neutral)
+
+#Young
+Young <- SD_TiktokTobacco %>% select(Young_SS, 
+      Young_NK)
+agree(Young)
+
+#Crowd
+Crowd <- SD_TiktokTobacco %>% select(Crowd_SS, 
+      Crowd_NK)
+agree(Crowd)
+
+
+```
+# Interrater Reliability for Spanish Tweets
+```{r IRR Spanish Tweets}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+SD_SpanishTweets <- read_excel("~/Desktop/SD_SpanishTweets.xlsx", 
+    sheet = "OG Posts")
+
+#Tobacco Use
+Use <- SD_SpanishTweets %>% 
+select(Tobacco_use_V, Tobacco_use_M)
+agree(Use)
+
+#Cessation
+Cessation <- SD_SpanishTweets %>% 
+select(Cessation_V, Cessation_M)
+agree(Cessation)
+
+#Health_Warnings
+Health_Warnings <- SD_SpanishTweets %>% 
+select(Health_Warnings_V, Health_Warnings_M)
+agree(Health_Warnings)
+
+#Health_Benefits_Vaping
+Health_Benefits_Vaping <- SD_SpanishTweets %>% 
+select(Health_benefits_vaping_V, 
+       Health_benefits_vaping_M)
+agree(Health_Benefits_Vaping)
+
+#Policy
+Policy <- SD_SpanishTweets %>% 
+select(Policy_V, 
+       Policy_M)
+agree(Policy)
+
+#Product_Promotion
+Product_Promotion <- SD_SpanishTweets %>% 
+select(Product_Promotion_V, 
+       Product_Promotion_M)
+agree(Product_Promotion)
+
+#Addiction
+Addiction <- SD_SpanishTweets %>% 
+select(Addiction_V, 
+       Addiction_M)
+agree(Addiction)
+
+#Polysubstance_Use
+Polysubstance_Use <- SD_SpanishTweets %>% 
+select(Polysubstance_Use_V, 
+       Polysubstance_Use_M)
+agree(Polysubstance_Use)
+
+#Cannabis_use
+Cannabis_use <- SD_SpanishTweets %>% 
+select(Cannabis_use_V, 
+       Cannabis_use_M)
+agree(Cannabis_use)
+
+#Positive_Sentiment
+Positive_Sentiment <- SD_SpanishTweets %>% 
+select(Positive_Sentiment_V, 
+       Positive_Sentiment_M)
+agree(Positive_Sentiment)
+
+#Negative_Sentiment
+Negative_Sentiment <- SD_SpanishTweets %>% 
+select(Negative_Sentiment_V, 
+       Negative_Sentiment_M)
+agree(Negative_Sentiment)
+
+#Neutral_Sentiment
+Neutral_Sentiment <- SD_SpanishTweets %>% 
+select(Neutral_Sentiment_V, 
+       Neutral_Sentiment_M)
+agree(Neutral_Sentiment)
+```
+# Interrater Reliability for Policy Paper
+```{r IRR Policy Paper}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+PolicyDocs_Final <- read_excel("~/Desktop/PolicyDocs_Final.xlsx")
+
+
+#Intervention
+Intervention <- PolicyDocs_Final %>% 
+select(INTERV_TB,INTERV_SD,INTERV_NK)
+agree(Intervention)
+
+#Attention
+Attention <- PolicyDocs_Final %>% 
+select(ATTENT_TB,ATTENT_SD,ATTENT_NK)
+agree(Attention)
+
+#UX
+UX <- PolicyDocs_Final %>% 
+select(UX_TB,UX_SD,UX_NK)
+agree(UX)
+
+#Markt
+Markt <- PolicyDocs_Final %>% 
+select(MARKT_TB,MARKT_SD,MARKT_NK)
+agree(Markt)
+
+#Policy
+Policy <- PolicyDocs_Final %>% 
+select(POLICY_TB,POLICY_SD,POLICY_NK)
+agree(Policy)
+
+#Protobacco
+Pro <- PolicyDocs_Final %>% 
+select(PROTOBAC_TB,PROTOBAC_SD,PROTOBAC_NK)
+agree(Pro)
+
+#Methods
+Methods <- PolicyDocs_Final %>% 
+select(METHODS_TB,METHODS_SD,METHODS_NK)
+agree(Methods)
+
+```
+# Interrater Reliability for DTC
+```{r IRR DTC Website pre SB793}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+DTC_Website_IRR <- read_excel("~/Desktop/DTC_Website_IRR.xlsx", 
+    sheet = "Transpose")
+
+#IRR for VaporFi
+
+#Marketing 179,183,187,191,195,199,203,207,211,215,219,
+#223,227,231
+#Marketing Themes
+Marketing <- DTC_Website_IRR[c(179,183,187,191,195,199,203,207,211,215,219,223,227,231), ] %>% 
+select(`VaporFi (example)...2`, `VaporFi (example)...3`)
+agree(Marketing)
+
+#Promotional and Interactive 25,26,28:31,36:40,42
+Promo <- DTC_Website_IRR[c(25,26,28:31,36:40,42,269), ] %>% 
+select(`VaporFi (example)...2`, `VaporFi (example)...3`)
+agree(Promo)
+
+#Tobacco Products 100:114
+Products <- DTC_Website_IRR[c(100:114,140:149), ] %>% 
+select(`VaporFi (example)...2`, `VaporFi (example)...3`)
+agree(Products)
+
+#Health warnings
+Warnings <- DTC_Website_IRR[c(243,244,248:263), ] %>% 
+select(`VaporFi (example)...2`, `VaporFi (example)...3`)
+agree(Warnings)
+
+
+#IRR for JUUL
+
+#Marketing 179,183,187,191,195,199,203,207,211,215,219,
+#223,227,231
+#Marketing Themes
+Marketing <- DTC_Website_IRR[c(179,183,187,191,195,199,203,207,211,215,219,223,227,231), ] %>% 
+select(JUUL...4, JUUL...5)
+agree(Marketing)
+
+#Promotional and Interactive 25,26,28:31,36:40,42
+Promo <- DTC_Website_IRR[c(25,26,28:31,36:40,42,269), ] %>% 
+select(JUUL...4, JUUL...5)
+agree(Promo)
+
+#Tobacco Products 100:114
+Products <- DTC_Website_IRR[c(100:114,140:149), ] %>% 
+select(JUUL...4, JUUL...5)
+agree(Products)
+
+#Health warnings
+Warnings <- DTC_Website_IRR[c(243,244,248:263), ] %>% 
+select(JUUL...4, JUUL...5)
+agree(Warnings)
+
+#IRR for Stogz
+
+#Marketing 179,183,187,191,195,199,203,207,211,215,219,
+#223,227,231
+#Marketing Themes
+Marketing <- DTC_Website_IRR[c(179,183,187,191,195,199,203,207,211,215,219,223,227,231), ] %>% 
+select(Stogz...6, Stogz...7)
+agree(Marketing)
+
+
+#Promotional and Interactive 25,26,28:31,36:40,42
+Promo <- DTC_Website_IRR[c(25,26,28:31,36:40,42,269), ] %>% 
+select(Stogz...6, Stogz...7)
+agree(Promo)
+
+#Tobacco Products 100:114
+Products <- DTC_Website_IRR[c(100:114,140:149), ] %>% 
+select(Stogz...6, Stogz...7)
+agree(Products)
+
+#Health warnings
+Warnings <- DTC_Website_IRR[c(243,244,248:263), ] %>% 
+select(Stogz...6, Stogz...7)
+agree(Warnings)
+```
+```{r IRR DTC Purchase Attempts pre SB793 MINORS}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+PurchaseAttempt_IRR_PreSB <- read_excel("~/Desktop/USC/TIME/DTC/DTC_Pre_SB793/Website/PurchaseAttempt_Data/IRR/PurchaseAttempt_IRR_PreSB.xlsx", 
+    sheet = "Minors_Transposed")
+
+###JUUL###
+#Site entry 1:6
+SiteEntry <- PurchaseAttempt_IRR_PreSB[c(1:6),] %>%
+select(`JUUL_CP`, `JUUL_AD`, `JUUL_EA`)
+agree(SiteEntry)
+
+#TobaccoProducts 7:17
+TobaccoProducts <- PurchaseAttempt_IRR_PreSB[c(7:17),] %>%
+select(`JUUL_CP`, `JUUL_AD`, `JUUL_EA`)
+agree(TobaccoProducts)
+
+#Ageverification 18:30
+Ageverification <- PurchaseAttempt_IRR_PreSB[c(18:30),] %>%
+select(`JUUL_CP`, `JUUL_AD`, `JUUL_EA`)
+agree(Ageverification)
+
+###NJOY###
+#Site entry 1:6
+SiteEntry <- PurchaseAttempt_IRR_PreSB[c(1:6),] %>%
+select(`NJOY_CP`, `NJOY_AD`, `NJOY_EA`)
+agree(SiteEntry)
+
+#TobaccoProducts 7:17
+TobaccoProducts <- PurchaseAttempt_IRR_PreSB[c(7:17),] %>%
+select(`NJOY_CP`, `NJOY_AD`, `NJOY_EA`)
+agree(TobaccoProducts)
+
+#Ageverification 18:30
+Ageverification <- PurchaseAttempt_IRR_PreSB[c(18:30),] %>%
+select(`NJOY_CP`, `NJOY_AD`, `NJOY_EA`)
+agree(Ageverification)
+
+###Vapor Empire###
+#Site entry 1:6
+SiteEntry <- PurchaseAttempt_IRR_PreSB[c(1:6),] %>%
+select(`Vapor Empire_CP`, `Vapor Empire_AD`, `Vapor Empire_EA`)
+agree(SiteEntry)
+
+#TobaccoProducts 7:17
+TobaccoProducts <- PurchaseAttempt_IRR_PreSB[c(7:17),] %>%
+select(`Vapor Empire_CP`, `Vapor Empire_AD`, `Vapor Empire_EA`)
+agree(TobaccoProducts)
+
+#Ageverification 18:30
+Ageverification <- PurchaseAttempt_IRR_PreSB[c(18:30),] %>%
+select(`Vapor Empire_CP`, `Vapor Empire_AD`, `Vapor Empire_EA`)
+agree(Ageverification)
+
+###Stogz###
+#Site entry 1:6
+SiteEntry <- PurchaseAttempt_IRR_PreSB[c(1:6),] %>%
+select(`Stogz_CP`, `Stogz_AD`, `Stogz_EA`)
+agree(SiteEntry)
+
+#TobaccoProducts 7:17
+TobaccoProducts <- PurchaseAttempt_IRR_PreSB[c(7:17),] %>%
+select(`Stogz_CP`, `Stogz_AD`, `Stogz_EA`)
+agree(TobaccoProducts)
+
+#Ageverification 18:30
+Ageverification <- PurchaseAttempt_IRR_PreSB[c(18:30),] %>%
+select(`Stogz_CP`, `Stogz_AD`, `Stogz_EA`)
+agree(Ageverification)
+
+###Vuse###
+#Site entry 1:6
+SiteEntry <- PurchaseAttempt_IRR_PreSB[c(1:6),] %>%
+select(`Vuse_CP`, `Vuse_AD`, `Vuse_EA`)
+agree(SiteEntry)
+
+#TobaccoProducts 7:17
+TobaccoProducts <- PurchaseAttempt_IRR_PreSB[c(7:17),] %>%
+select(`Vuse_CP`, `Vuse_AD`, `Vuse_EA`)
+agree(TobaccoProducts)
+
+#Ageverification 18:30
+Ageverification <- PurchaseAttempt_IRR_PreSB[c(18:30),] %>%
+select(`Vuse_CP`, `Vuse_AD`, `Vuse_EA`)
+agree(Ageverification)
+```
+```{r IRR DTC Purchase Attempts post SB793 MINORS}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+PurchaseAttempt_U21_IRR <- read_excel("~/Desktop/PurchaseAttempts_U21_IRR.xlsm", 
+    sheet = "Transposed")
+
+###JUUL###
+#Site entry 1:5,7,8
+SiteEntry <- PurchaseAttempt_U21_IRR[c(1:5,7,8),] %>%
+select(`JUUL...2`, `JUUL...3`, `JUUL...4`)
+agree(SiteEntry)
+
+#Tobacco products 10:27,53,80:85,111,138:143,169,196,201,227
+TobaccoProducts <- PurchaseAttempt_U21_IRR[c(10:27,53,80:85,111,138:143,169,
+                                      196,201,227),] %>%
+select(`JUUL...2`, `JUUL...3`,`JUUL...4`)
+agree(TobaccoProducts)
+
+#Shipping 
+Shipping <- PurchaseAttempt_U21_IRR[c(254,256:262,
+                                     264,267:272,
+                                     274,277:282,287:292),] %>%
+select(`JUUL...2`, `JUUL...3`,`JUUL...4`)
+agree(Shipping)
+
+#Age Verification 
+Verification <- PurchaseAttempt_U21_IRR[c(317:331,333:340),] %>%
+select(`JUUL...2`, `JUUL...3`,`JUUL...4`)
+agree(Verification)
+
+#PageWarning 
+PageWarning  <- PurchaseAttempt_U21_IRR[c(87:93,113:119),] %>%
+select(`JUUL...2`, `JUUL...3`,`JUUL...4`)
+agree(PageWarning)
+
+###Vapor Empire###
+#Site entry 1:5,7,8
+SiteEntry <- PurchaseAttempt_U21_IRR[c(1:5,7,8),] %>%
+select(`Vapor Empire...5`, `Vapor Empire...6`, `Vapor Empire...7`)
+agree(SiteEntry)
+
+#Tobacco products 10:27,53,80:85,111,138:143,169,196,201,227
+TobaccoProducts <- PurchaseAttempt_U21_IRR[c(10:27,53,80:85,111,138:143,169,
+                                      196,201,227),] %>%
+select(`Vapor Empire...5`, `Vapor Empire...6`, `Vapor Empire...7`)
+agree(TobaccoProducts)
+
+#Shipping 
+Shipping <- PurchaseAttempt_U21_IRR[c(254,256:262,
+                                     264,267:272,
+                                     274,277:282,287:292),] %>%
+select(`Vapor Empire...5`, `Vapor Empire...6`, `Vapor Empire...7`)
+agree(Shipping)
+
+#Verification 
+Verification <- PurchaseAttempt_U21_IRR[c(317:331,333:340),] %>%
+select(`Vapor Empire...5`, `Vapor Empire...6`, `Vapor Empire...7`)
+agree(Verification)
+
+#PageWarning 
+PageWarning  <- PurchaseAttempt_U21_IRR[c(87:93,113:119),] %>%
+select(`Vapor Empire...5`, `Vapor Empire...6`, `Vapor Empire...7`)
+agree(PageWarning)
+
+###Vape3One###
+#Site entry 1:5,7,8
+SiteEntry <- PurchaseAttempt_U21_IRR[c(1:5,7,8),] %>%
+select(`Vape3One...17`, `Vape3One...18`, `Vape3One...19`)
+agree(SiteEntry)
+
+#Tobacco products 10:27,53,80:85,111,138:143,169,196,201,227
+TobaccoProducts <- PurchaseAttempt_U21_IRR[c(10:27,53,80:85,111,138:143,169,
+                                      196,201,227),] %>%
+select(`Vape3One...17`, `Vape3One...18`, `Vape3One...19`)
+agree(TobaccoProducts)
+
+#Shipping 
+Shipping <- PurchaseAttempt_U21_IRR[c(254,256:262,
+                                     264,267:272,
+                                     274,277:282,287:292),] %>%
+select(`Vape3One...17`, `Vape3One...18`, `Vape3One...19`)
+agree(Shipping)
+
+#Verification 
+Verification <- PurchaseAttempt_U21_IRR[c(317:331,333:340),] %>%
+select(`Vape3One...17`, `Vape3One...18`, `Vape3One...19`)
+agree(Verification)
+
+#PageWarning 
+PageWarning  <- PurchaseAttempt_U21_IRR[c(87:93,113:119),] %>%
+select(`Vape3One...17`, `Vape3One...18`, `Vape3One...19`)
+agree(PageWarning)
+
+###PuffBar###
+#Site entry 1:5,7,8
+SiteEntry <- PurchaseAttempt_U21_IRR[c(1:5,7,8),] %>%
+select(`Puff Bar...20`, `Puff Bar...21`, `Puff Bar...22`)
+agree(SiteEntry)
+
+#Tobacco products 10:27,53,80:85,111,138:143,169,196,201,227
+TobaccoProducts <- PurchaseAttempt_U21_IRR[c(10:27,53,80:85,111,138:143,169,
+                                      196,201,227),] %>%
+select(`Puff Bar...20`, `Puff Bar...21`, `Puff Bar...22`)
+agree(TobaccoProducts)
+
+#Shipping 
+Shipping <- PurchaseAttempt_U21_IRR[c(254,256:262,
+                                     264,267:272,
+                                     274,277:282,287:292),] %>%
+select(`Puff Bar...20`, `Puff Bar...21`, `Puff Bar...22`)
+agree(Shipping)
+
+#Verification 
+Verification <- PurchaseAttempt_U21_IRR[c(317:331,333:340),] %>%
+select(`Puff Bar...20`, `Puff Bar...21`, `Puff Bar...22`)
+agree(Verification)
+
+#PageWarning 
+PageWarning  <- PurchaseAttempt_U21_IRR[c(87:93,113:119),] %>%
+select(`Puff Bar...20`, `Puff Bar...21`, `Puff Bar...22`)
+agree(PageWarning)
+
+###Upscale###
+#Site entry 1:5,7,8
+SiteEntry <- PurchaseAttempt_U21_IRR[c(1:5,7,8),] %>%
+select(`Upscale Vapes...23`, `Upscale Vapes...24`, `Upscale Vapes...25`)
+agree(SiteEntry)
+
+#Tobacco products 10:27,53,80:85,111,138:143,169,196,201,227
+TobaccoProducts <- PurchaseAttempt_U21_IRR[c(10:27,53,80:85,111,138:143,169,
+                                      196,201,227),] %>%
+select(`Upscale Vapes...23`, `Upscale Vapes...24`, `Upscale Vapes...25`)
+agree(TobaccoProducts)
+
+#Shipping 
+Shipping <- PurchaseAttempt_U21_IRR[c(254,256:262,
+                                     264,267:272,
+                                     274,277:282,287:292),] %>%
+select(`Upscale Vapes...23`, `Upscale Vapes...24`, `Upscale Vapes...25`)
+agree(Shipping)
+
+#Age Verification 
+Verification <- PurchaseAttempt_U21_IRR[c(317:331,333:340),] %>%
+select(`Upscale Vapes...23`, `Upscale Vapes...24`, `Upscale Vapes...25`)
+agree(Verification)
+
+#PageWarning 
+PageWarning  <- PurchaseAttempt_U21_IRR[c(87:93,113:119),] %>%
+select(`Upscale Vapes...23`, `Upscale Vapes...24`, `Upscale Vapes...25`)
+agree(PageWarning)
+
+###Innokin###
+#Site entry 1:5,7,8
+SiteEntry <- PurchaseAttempt_U21_IRR[c(1:5,7,8),] %>%
+select(`In0kin...26`, `In0kin...27`, `In0kin...28`)
+agree(SiteEntry)
+
+#Tobacco products 10:27,53,80:85,111,138:143,169,196,201,227
+TobaccoProducts <- PurchaseAttempt_U21_IRR[c(10:27,53,80:85,111,138:143,169,
+                                      196,201,227),] %>%
+select(`In0kin...26`, `In0kin...27`, `In0kin...28`)
+agree(TobaccoProducts)
+
+#Shipping 
+Shipping <- PurchaseAttempt_U21_IRR[c(254,256:262,
+                                     264,267:272,
+                                     274,277:282,287:292),] %>%
+select(`In0kin...26`, `In0kin...27`, `In0kin...28`)
+agree(Shipping)
+
+#Age Verification 
+Verification <- PurchaseAttempt_U21_IRR[c(317:331,333:340),] %>%
+select(`In0kin...26`, `In0kin...27`, `In0kin...28`)
+agree(Verification)
+
+#PageWarning 
+PageWarning  <- PurchaseAttempt_U21_IRR[c(87:93,113:119),] %>%
+select(`In0kin...26`, `In0kin...27`, `In0kin...28`)
+agree(PageWarning)
+
+```
+```{r IRR DTC Purchase Attempts post SB793 21+}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+PurchaseAttempt_21_IRR <- read_excel("~/Desktop/PurchaseAttempt_21_IRR.xlsm", 
+    sheet = "Transposed")
+
+###Vape3One###
+#Site entry 1:5,7,8
+SiteEntry <- PurchaseAttempt_21_IRR[c(1:5,7,8),] %>%
+select(`Vape3One...12`, `Vape3One...13`)
+agree(SiteEntry)
+
+#Tobacco products 10:27,53,80:85,111,138:143,169,196,201,227
+TobaccoProducts <- PurchaseAttempt_21_IRR[c(10:27,53,80:85,111,138:143,169,
+                                      196,201,227),] %>%
+select(`Vape3One...12`, `Vape3One...13`)
+agree(TobaccoProducts)
+
+#Shipping 
+Shipping <- PurchaseAttempt_21_IRR[c(254,256:262,
+                                     264,267:272,
+                                     274,277:282,287:292),] %>%
+select(`Vape3One...12`, `Vape3One...13`)
+agree(Shipping)
+
+#Verification 
+Verification <- PurchaseAttempt_21_IRR[c(317:331,333:340),] %>%
+select(`Vape3One...12`, `Vape3One...13`)
+agree(Verification)
+
+#PageWarning 
+PageWarning  <- PurchaseAttempt_21_IRR[c(87:93,113:119),] %>%
+select(`Vape3One...12`, `Vape3One...13`)
+agree(PageWarning)
+
+###PuffBar###
+#Site entry 1:5,7,8
+SiteEntry <- PurchaseAttempt_21_IRR[c(1:5,7,8),] %>%
+select(`Puff Bar...14`, `Puff Bar...15`)
+agree(SiteEntry)
+
+#Tobacco products 10:27,53,80:85,111,138:143,169,196,201,227
+TobaccoProducts <- PurchaseAttempt_21_IRR[c(10:27,53,80:85,111,138:143,169,
+                                      196,201,227),] %>%
+select(`Puff Bar...14`, `Puff Bar...15`)
+agree(TobaccoProducts)
+
+#Shipping 
+Shipping <- PurchaseAttempt_21_IRR[c(254,256:262,
+                                     264,267:272,
+                                     274,277:282,287:292),] %>%
+select(`Puff Bar...14`, `Puff Bar...15`)
+agree(Shipping)
+
+#Verification 
+Verification <- PurchaseAttempt_21_IRR[c(317:331,333:340),] %>%
+select(`Puff Bar...14`, `Puff Bar...15`)
+agree(Verification)
+
+#PageWarning 
+PageWarning  <- PurchaseAttempt_21_IRR[c(87:93,113:119),] %>%
+select(`Puff Bar...14`, `Puff Bar...15`)
+agree(PageWarning)
+
+###Upscale Vapes###
+#Site entry 1:5,7,8
+SiteEntry <- PurchaseAttempt_21_IRR[c(1:5,7,8),] %>%
+select(`Upscale Vapes...16`, `Upscale Vapes...17`)
+agree(SiteEntry)
+
+#Tobacco products 10:27,53,80:85,111,138:143,169,196,201,227
+TobaccoProducts <- PurchaseAttempt_21_IRR[c(10:27,53,80:85,111,138:143,169,
+                                      196,201,227),] %>%
+select(`Upscale Vapes...16`, `Upscale Vapes...17`)
+agree(TobaccoProducts)
+
+#Shipping 
+Shipping <- PurchaseAttempt_21_IRR[c(254,256:262,
+                                     264,267:272,
+                                     274,277:282,287:292),] %>%
+select(`Upscale Vapes...16`, `Upscale Vapes...17`)
+agree(Shipping)
+
+#Verification 
+Verification <- PurchaseAttempt_21_IRR[c(317:331,333:340),] %>%
+select(`Upscale Vapes...16`, `Upscale Vapes...17`)
+agree(Verification)
+
+#PageWarning 
+PageWarning  <- PurchaseAttempt_21_IRR[c(87:93,113:119),] %>%
+select(`Upscale Vapes...16`, `Upscale Vapes...17`)
+agree(PageWarning)
+
+###Innokin###
+#Site entry 1:5,7,8
+SiteEntry <- PurchaseAttempt_21_IRR[c(1:5,7,8),] %>%
+select(`In0kin...18`, `In0kin...19`)
+agree(SiteEntry)
+
+#Tobacco products 10:27,53,80:85,111,138:143,169,196,201,227
+TobaccoProducts <- PurchaseAttempt_21_IRR[c(10:27,53,80:85,111,138:143,169,
+                                      196,201,227),] %>%
+select(`In0kin...18`, `In0kin...19`)
+agree(TobaccoProducts)
+
+#Shipping 
+Shipping <- PurchaseAttempt_21_IRR[c(254,256:262,
+                                     264,267:272,
+                                     274,277:282,287:292),] %>%
+select(`In0kin...18`, `In0kin...19`)
+agree(Shipping)
+
+#Verification 
+Verification <- PurchaseAttempt_21_IRR[c(317:331,333:340),] %>%
+select(`In0kin...18`, `In0kin...19`)
+agree(Verification)
+
+#PageWarning 
+PageWarning  <- PurchaseAttempt_21_IRR[c(87:93,113:119),] %>%
+select(`In0kin...18`, `In0kin...19`)
+agree(PageWarning)
+
+```
+```{r IRR DTC Website post SB793}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+Website_IRR <- read_excel("~/Desktop/Website_IRR.xlsm", 
+    sheet = "Transposed")
+
+###JUUL###
+#Site entry 1:11
+SiteEntry <- Website_IRR[c(1:11, 15),] %>%
+select(`JUUL...11`, `JUUL...12`, `JUUL...13`)
+agree(SiteEntry)
+
+#Promotional and Interactive 25:43
+Promotional <- Website_IRR[c(25:34,36:43),] %>%
+select(`JUUL...11`, `JUUL...12`, `JUUL...13`)
+agree(Promotional)
+
+#Tobacco Products 81:92
+Tobacco <- Website_IRR[c(81:92),] %>%
+select(`JUUL...11`, `JUUL...12`, `JUUL...13`)
+agree(Tobacco)
+
+#Flavors 95:149
+Flavors <- Website_IRR[c(95:149),] %>%
+select(`JUUL...11`, `JUUL...12`, `JUUL...13`)
+agree(Flavors)
+
+#MarketingThemes 180:235
+MarketingThemes <- Website_IRR[c(95:149),] %>%
+select(`JUUL...11`, `JUUL...12`, `JUUL...13`)
+agree(MarketingThemes)
+
+#Anti 244,245
+Anti <- Website_IRR[c(244,245),] %>%
+select(`JUUL...11`, `JUUL...12`, `JUUL...13`)
+agree(Anti)
+
+#Warnings 250:264
+Warnings <- Website_IRR[c(250:264),] %>%
+select(`JUUL...11`, `JUUL...12`, `JUUL...13`)
+agree(Warnings)
+
+###VaporEmpire###
+#Site entry 1:11
+SiteEntry <- Website_IRR[c(1:11, 15),] %>%
+select(`Vapor Empire...14`, `Vapor Empire...15`, `Vapor Empire...16`)
+agree(SiteEntry)
+
+#Promotional and Interactive 25:43
+Promotional <- Website_IRR[c(25:34,36:43),] %>%
+select(`Vapor Empire...14`, `Vapor Empire...15`, `Vapor Empire...16`)
+agree(Promotional)
+
+#Tobacco Products 81:92
+Tobacco <- Website_IRR[c(81:92),] %>%
+select(`Vapor Empire...14`, `Vapor Empire...15`, `Vapor Empire...16`)
+agree(Tobacco)
+
+#Flavors 95:149
+Flavors <- Website_IRR[c(95:149),] %>%
+select(`Vapor Empire...14`, `Vapor Empire...15`, `Vapor Empire...16`)
+agree(Flavors)
+
+#MarketingThemes 180:235
+MarketingThemes <- Website_IRR[c(95:149),] %>%
+select(`Vapor Empire...14`, `Vapor Empire...15`, `Vapor Empire...16`)
+agree(MarketingThemes)
+
+#Anti 244,245
+Anti <- Website_IRR[c(244,245),] %>%
+select(`Vapor Empire...14`, `Vapor Empire...15`, `Vapor Empire...16`)
+agree(Anti)
+
+#Warnings 250:264
+Warnings <- Website_IRR[c(250:264),] %>%
+select(`Vapor Empire...14`, `Vapor Empire...15`, `Vapor Empire...16`)
+agree(Warnings)
+
+###Vape3One###
+#Site entry 1:11
+SiteEntry <- Website_IRR[c(1:11, 15),] %>%
+select(`Vape3One...17`, `Vape3One...18`, `Vape3One...19`)
+agree(SiteEntry)
+
+#Promotional and Interactive 25:43
+Promotional <- Website_IRR[c(25:34,36:43),] %>%
+select(`Vape3One...17`, `Vape3One...18`, `Vape3One...19`)
+agree(Promotional)
+
+#Tobacco Products 81:92
+Tobacco <- Website_IRR[c(81:92),] %>%
+select(`Vape3One...17`, `Vape3One...18`, `Vape3One...19`)
+agree(Tobacco)
+
+#Flavors 95:149
+Flavors <- Website_IRR[c(95:149),] %>%
+select(`Vape3One...17`, `Vape3One...18`, `Vape3One...19`)
+agree(Flavors)
+
+#MarketingThemes 180:235
+MarketingThemes <- Website_IRR[c(95:149),] %>%
+select(`Vape3One...17`, `Vape3One...18`, `Vape3One...19`)
+agree(MarketingThemes)
+
+#Anti 244,245
+Anti <- Website_IRR[c(244,245),] %>%
+select(`Vape3One...17`, `Vape3One...18`, `Vape3One...19`)
+agree(Anti)
+
+#Warnings 250:264
+Warnings <- Website_IRR[c(250:264),] %>%
+select(`Vape3One...17`, `Vape3One...18`, `Vape3One...19`)
+agree(Warnings)
+
+###PuffBar###
+#Site entry 1:11
+SiteEntry <- Website_IRR[c(1:11, 15),] %>%
+select(`Puff Bar...20`, `Puff Bar...21`, `Puff Bar...22`)
+agree(SiteEntry)
+
+#Promotional and Interactive 25:43
+Promotional <- Website_IRR[c(25:34,36:43),] %>%
+select(`Puff Bar...20`, `Puff Bar...21`, `Puff Bar...22`)
+agree(Promotional)
+
+#Tobacco Products 81:92
+Tobacco <- Website_IRR[c(81:92),] %>%
+select(`Puff Bar...20`, `Puff Bar...21`, `Puff Bar...22`)
+agree(Tobacco)
+
+#Flavors 95:149
+Flavors <- Website_IRR[c(95:149),] %>%
+select(`Puff Bar...20`, `Puff Bar...21`, `Puff Bar...22`)
+agree(Flavors)
+
+#MarketingThemes 180:235
+MarketingThemes <- Website_IRR[c(95:149),] %>%
+select(`Puff Bar...20`, `Puff Bar...21`, `Puff Bar...22`)
+agree(MarketingThemes)
+
+#Anti 244,245
+Anti <- Website_IRR[c(244,245),] %>%
+select(`Puff Bar...20`, `Puff Bar...21`, `Puff Bar...22`)
+agree(Anti)
+
+#Warnings 250:264
+Warnings <- Website_IRR[c(250:264),] %>%
+select(`Puff Bar...20`, `Puff Bar...21`, `Puff Bar...22`)
+agree(Warnings)
+
+###UpScale Vapes###
+#Site entry 1:11
+SiteEntry <- Website_IRR[c(1:11, 15),] %>%
+select(`Upscale Vapes...23`, `Upscale Vapes...24`, `Upscale Vapes...25`)
+agree(SiteEntry)
+
+#Promotional and Interactive 25:43
+Promotional <- Website_IRR[c(25:34,36:43),] %>%
+select(`Upscale Vapes...23`, `Upscale Vapes...24`, `Upscale Vapes...25`)
+agree(Promotional)
+
+#Tobacco Products 81:92
+Tobacco <- Website_IRR[c(81:92),] %>%
+select(`Upscale Vapes...23`, `Upscale Vapes...24`, `Upscale Vapes...25`)
+agree(Tobacco)
+
+#Flavors 95:149
+Flavors <- Website_IRR[c(95:149),] %>%
+select(`Upscale Vapes...23`, `Upscale Vapes...24`, `Upscale Vapes...25`)
+agree(Flavors)
+
+#MarketingThemes 180:235
+MarketingThemes <- Website_IRR[c(95:149),] %>%
+select(`Upscale Vapes...23`, `Upscale Vapes...24`, `Upscale Vapes...25`)
+agree(MarketingThemes)
+
+#Anti 244,245
+Anti <- Website_IRR[c(244,245),] %>%
+select(`Upscale Vapes...23`, `Upscale Vapes...24`, `Upscale Vapes...25`)
+agree(Anti)
+
+#Warnings 250:264
+Warnings <- Website_IRR[c(250:264),] %>%
+select(`Upscale Vapes...23`, `Upscale Vapes...24`, `Upscale Vapes...25`)
+agree(Warnings)
+
+###Innokin###
+#Site entry 1:11
+SiteEntry <- Website_IRR[c(1:11, 15),] %>%
+select(`In0kin...26`, `In0kin...27`, `In0kin...28`)
+agree(SiteEntry)
+
+#Promotional and Interactive 25:43
+Promotional <- Website_IRR[c(25:34,36:43),] %>%
+select(`In0kin...26`, `In0kin...27`, `In0kin...28`)
+agree(Promotional)
+
+#Tobacco Products 81:92
+Tobacco <- Website_IRR[c(81:92),] %>%
+select(`In0kin...26`, `In0kin...27`, `In0kin...28`)
+agree(Tobacco)
+
+#Flavors 95:149
+Flavors <- Website_IRR[c(95:149),] %>%
+select(`In0kin...26`, `In0kin...27`, `In0kin...28`)
+agree(Flavors)
+
+#MarketingThemes 180:235
+MarketingThemes <- Website_IRR[c(95:149),] %>%
+select(`In0kin...26`, `In0kin...27`, `In0kin...28`)
+agree(MarketingThemes)
+
+#Anti 244,245
+Anti <- Website_IRR[c(244,245),] %>%
+select(`In0kin...26`, `In0kin...27`, `In0kin...28`)
+agree(Anti)
+
+#Warnings 250:264
+Warnings <- Website_IRR[c(250:264),] %>%
+select(`In0kin...26`, `In0kin...27`, `In0kin...28`)
+agree(Warnings)
+```
+
+# Google Trends
+```{r Load packages}
+# Load Packages
+library(gtrendsR)
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(readr) 
+library(gtrendsR) 
+library(purrr) 
+library(reshape2)
+library(xts)
+library(dygraphs)
+library(forecast)
+library(tseries)
+library(lubridate)
+library(ggfortify)
+library(vars)
+library(dlm)
+library(KFAS)
+library(scales)
+library(tidyquant)
+library(QuantPsyc)
+```
+## California Search Query
+```{r Cali Search Query}
+# Search Query
+search_terms <- c("zyn", "elf bar", "hookah")
+
+output_results <- gtrends(keyword = search_terms,
+        time = "2022-08-01 2023-08-01",
+        geo = "US-CA",
+        low_search_volume = TRUE)
+
+plot(output_results)
+
+```
+```{r Download Cali Datasets}
+#Interest over time
+Interest_Time <- output_results[["interest_over_time"]]
+
+#Interest by Metro areas
+Interest_DMA <-output_results[["interest_by_dma"]]
+
+#Interest by City
+Interest_City <- output_results[["interest_by_city"]]
+#
+```
+```{r Create Cali time series object}
+#Create time series object
+data_wide <- dcast(Interest_Time, 
+                   date ~ keyword, 
+                   value.var="hits")
+#Convert to numeric
+data_wide$hookah <- as.numeric(data_wide$hookah)
+data_wide$`puff bar` <- as.numeric(data_wide$`puff bar`)
+
+#Final ts object
+TimeSeries <- ts(data_wide,
+                 start=decimal_date(ymd("2020-04-05")),
+                 frequency = 365.25/7)
+
+
+```
+### Cali ARIMA
+```{r Hookah ARIMA Fit}
+#hookah ARIMA
+hookah_arima <- TimeSeries[,2]
+
+#Testing for stationarity
+acf(hookah_arima)
+pacf(hookah_arima)
+adf.test(hookah_arima)
+
+#Convert
+hookah_fit <- auto.arima(hookah_arima,
+                        ic = "aic",
+                        trace = TRUE)
+
+#Best model: ARIMA(2,0,0)
+acf(hookah_fit$residuals)
+pacf(hookah_fit$residuals)
+
+#Forecast
+hookah_forecast <- forecast(hookah_fit,
+                            level = c(95),
+                            h=52)
+
+autoplot(hookah_forecast)
+
+Box.test(hookah_forecast$residuals,
+         lag = 5, 
+         type = "Ljung-Box")
+
+#Check residuals
+checkresiduals(hookah_fit)
+```
+```{r Hookah ARIMA Plot}
+# Split in two
+Hookah_Predicted <- subset(hookah_arima, end = 22)
+Hookah_Actual <- subset(hookah_arima, start = 22)
+
+# Fit model
+Hookah_fit_arima <- auto.arima(Hookah_Predicted, 
+                        ic = "aic",
+                        lambda=0)
+
+# Compute forecasts
+hookah_fcst <- forecast(Hookah_fit_arima,
+                 level = c(95),
+                 h = 43)
+
+#Log Transform the Forecasts
+# Bounds
+ a <- 0
+ b <- 100
+ # Transform data
+ y <- log((Hookah_Predicted-a)/(b-Hookah_Predicted))
+ fit <- ets(y)
+ fc <- forecast(fit, h=43)
+ # Back-transform forecasts
+ fc$mean <- (b-a)*exp(fc$mean)/(1+exp(fc$mean)) + a
+ fc$lower <- (b-a)*exp(fc$lower)/(1+exp(fc$lower)) + a
+ fc$upper <- (b-a)*exp(fc$upper)/(1+exp(fc$upper)) + a
+ fc$x <- Hookah_Predicted
+
+# Plot forecasts and test set
+Hookah_FINAL <- 
+  autoplot(fc,
+           ylim = c(0,100),
+           conf.int = FALSE) + 
+  autolayer(Hookah_Actual) + 
+  ggtitle("Hookah Google Queries") +
+  theme_classic()
+```
+```{r Puff Bar ARIMA Fit}
+#puffbar ARIMA
+puffbar_arima <- TimeSeries[,3]
+
+#Testing for stationarity
+acf(puffbar_arima)
+pacf(puffbar_arima)
+adf.test(puffbar_arima)
+
+#Convert
+puffbar_fit <- auto.arima(puffbar_arima,
+                        ic = "aic",
+                        trace = TRUE)
+
+#Best model: 
+acf(puffbar_fit$residuals)
+pacf(puffbar_fit$residuals)
+
+#Forecast
+puffbar_forecast <- forecast(puffbar_fit,
+                            level = c(95),
+                            h=52)
+
+autoplot(puffbar_forecast)
+
+Box.test(puffbar_forecast$residuals,
+         lag = 5, 
+         type = "Ljung-Box")
+
+#Check residuals
+checkresiduals(puffbar_fit)
+```
+```{r Puff Bar ARIMA Plot}
+# Split in two
+Puffbar_Predicted <- subset(puffbar_arima, end = 22)
+Puffbar_Actual <- subset(puffbar_arima, start = 22)
+
+# Fit model
+PuffBar_fit_arima <- auto.arima(Puffbar_Predicted, 
+                        ic = "aic")
+
+# Compute forecasts
+puffbar_fcst <- forecast(PuffBar_fit_arima,
+                 level = c(95),
+                 h = 43)
+
+# Plot forecasts and test set
+PuffBar_FINAL <- autoplot(puffbar_fcst,
+                          ylim = c(0,100),
+                          conf.int = FALSE) + 
+autolayer(Puffbar_Actual) + 
+ggtitle("Puff Bar Google Queries") +
+theme_classic() 
+```
+```{r FINAL PLOT}
+res <- list(a = PuffBar_FINAL,
+            b = Hookah_FINAL)
+
+autoplot(res,
+         ylim = c(0,100)) +
+xlab("Date") + 
+ylab("Search Volume, RSV") +
+theme(legend.position="none") +
+geom_vline(xintercept=c(2020.66, 
+                        2021.0),
+           linetype='dashed',
+           color=c('blue', 'red')) +
+annotate(geom = "text",
+         label =  c("SB793", "Referendum"),
+         x = c(2020.66, 2021.02),
+         y = c(1, 4),
+         angle = 90, 
+         vjust = 1,
+         size = 3) +
+scale_x_continuous(breaks = c(2020.2,
+                              2020.66,
+                              2021.0,
+                              2021.5,
+                              2022.0),
+                   label = c("4/20",
+                             "8/20",
+                             "1/21", 
+                             "6/21",
+                             "1/22")
+                   )  
+
+
+
+
+```
+### Cali Linear Models
+```{r CA Linear Models-Baseline}
+#Subset the baseline period 
+Baseline <- data_wide[c(1:21),]
+
+#Baseline Hookah
+mean(Baseline$hookah)
+sd(Baseline$hookah)
+
+Baseline_lm_hookah <- lm(scale(hookah) ~ scale(date),
+                         data = Baseline)
+
+summary(Baseline_lm_hookah)
+lm.beta(Baseline_lm_hookah)
+confint(Baseline_lm_hookah)
+
+#Baseline Puff Bar
+mean(Baseline$`puff bar`)
+sd(Baseline$`puff bar`)
+
+
+Baseline_lm_PB <- lm(scale(`puff bar`) ~ scale(date),
+                     data = Baseline)
+
+summary(Baseline_lm_PB)
+lm.beta(Baseline_lm_PB)
+confint(Baseline_lm_PB)
+```
+```{r CA Linear Models-SB793-Ref}
+#Subset SB793 to Referendum
+Ref <- data_wide[c(22:43),]
+
+#Hookah
+mean(Ref$hookah)
+sd(Ref$hookah)
+
+Ref_lm_hookah <- lm(scale(hookah) ~ scale(date),
+                    data = Ref)
+
+summary(Ref_lm_hookah)
+lm.beta(Ref_lm_hookah)
+confint(Ref_lm_hookah)
+
+
+#Puff Bar
+mean(Ref$`puff bar`)
+sd(Ref$`puff bar`)
+
+Ref_lm_PB <- lm(scale(`puff bar`) ~ scale(date),
+                data = Ref)
+
+summary(Ref_lm_PB)
+lm.beta(Ref_lm_PB)
+confint(Ref_lm_PB)
+```
+```{r CA Linear Models-Ref-Post}
+#Subset Ref-Posts
+Post <- data_wide[c(44:65),]
+
+# Hookah
+mean(Post$hookah)
+sd(Post$hookah)
+
+Post_hookah <- lm(scale(hookah) ~ scale(date),
+                    data = Post)
+
+summary(Post_hookah)
+lm.beta(Post_hookah)
+confint(Post_hookah)
+
+
+# Puff Bar
+mean(Post$`puff bar`)
+sd(Post$`puff bar`)
+
+Post_PB <- lm(scale(`puff bar`) ~ scale(date),
+                data = Post)
+summary(Post_PB)
+lm.beta(Post_PB)
+confint(Post_PB)
+```
+
+
+## Breakdown by Market Areas
+### Designated Market
+```{r Designated Market Areas}
+#Get the Code for each DMA
+url <- "https://trends.google.com/trends/api/explore/pickers/geo"
+# Give the input file name to the function.
+obj <- curl::curl_fetch_memory(url)
+## Fix encoding issue for keywords "
+temp <- rawToChar(obj$content)
+Encoding(temp) <- "UTF-8"
+
+json <- jsonlite::fromJSON(substring(temp, first = 6))
+
+DMA <- json$children$children[[which(json$children$id=="US")]]$children[[which(json$children$children[[which(json$children$id=="US")]]$id=="CA")]]
+```
+### Los Angeles
+```{r Los Angeles}
+#Baseline
+search_terms <- c("puff bar",
+                  "hookah")
+
+LA_results <- gtrends(keyword = search_terms,
+        time = "2020-04-05 2021-06-27",
+        geo = "US-CA-803",
+        low_search_volume = TRUE)
+
+plot(LA_results)
+
+```
+```{r Download LA Datasets}
+#Interest over time
+LA_Interest_Time <- LA_results[["interest_over_time"]]
+
+#Interest by Metro areas
+LA_Interest_DMA <- LA_results[["interest_by_dma"]]
+
+#Interest by City
+LA_Interest_City <- LA_results[["interest_by_city"]]
+
+```
+```{r Create LA time series object}
+#Create time series object
+LA_data_wide <- dcast(LA_Interest_Time, 
+                   date ~ keyword, 
+                   value.var="hits")
+#Convert to numeric
+LA_data_wide$hookah <- as.numeric(LA_data_wide$hookah)
+LA_data_wide$`puff bar` <- as.numeric(LA_data_wide$`puff bar`)
+
+#Final ts object
+LA_TimeSeries <- ts(LA_data_wide,
+                 start=decimal_date(ymd("2020-04-05")),
+                 frequency = 365.25/7)
+
+
+```
+```{r LA Hookah ARIMA Fit}
+#hookah ARIMA
+LA_hookah_arima <- LA_TimeSeries[,2]
+
+#Testing for stationarity
+acf(LA_hookah_arima)
+pacf(LA_hookah_arima)
+adf.test(LA_hookah_arima)
+
+#Convert
+LA_hookah_fit <- auto.arima(LA_hookah_arima,
+                        ic = "aic",
+                        trace = TRUE)
+
+#Best model: ARIMA
+acf(LA_hookah_fit$residuals)
+pacf(LA_hookah_fit$residuals)
+
+#Forecast
+LA_hookah_forecast <- forecast(LA_hookah_fit,
+                            level = c(95),
+                            h=52)
+
+autoplot(LA_hookah_forecast)
+
+Box.test(LA_hookah_forecast$residuals,
+         lag = 5, 
+         type = "Ljung-Box")
+
+#Check residuals
+checkresiduals(LA_hookah_fit)
+```
+```{r LA Hookah ARIMA Plot}
+# Split in two
+LA_Hookah_Predicted <- subset(LA_hookah_arima, end = 22)
+LA_Hookah_Actual <- subset(LA_hookah_arima, start = 22)
+
+# Fit model
+LA_Hookah_fit_arima <- auto.arima(LA_Hookah_Predicted, 
+                        ic = "aic",
+                        lambda=0)
+
+# Compute forecasts
+LA_hookah_fcst <- forecast(LA_Hookah_fit_arima,
+                 level = c(95),
+                 h = 43)
+
+#Log Transform the Forecasts
+# Bounds
+ a <- 0
+ b <- 100
+ # Transform data
+ LA_y <- log((LA_Hookah_Predicted-a)/(b-LA_Hookah_Predicted))
+ LA_fit <- ets(LA_y)
+ LA_fc <- forecast(LA_fit,
+                   43)
+ # Back-transform forecasts
+ LA_fc$mean <- (b-a)*exp(LA_fc$mean)/(1+exp(LA_fc$mean)) + a
+ LA_fc$lower <- (b-a)*exp(LA_fc$lower)/(1+exp(LA_fc$lower)) + a
+ LA_fc$upper <- (b-a)*exp(LA_fc$upper)/(1+exp(LA_fc$upper)) + a
+ LA_fc$x <- LA_Hookah_Predicted
+
+# Plot forecasts and test set
+LA_Hookah_FINAL <- 
+  autoplot(LA_fc,
+           ylim = c(0,100)) + 
+  autolayer(LA_Hookah_Actual) + 
+  ggtitle("Hookah Google Search Queries",
+          subtitle = "Los Angeles") +
+  theme_classic()
+```
+```{r LA Puff Bar ARIMA Fit}
+#puffbar ARIMA
+LA_puffbar_arima <- LA_TimeSeries[,3]
+
+#Testing for stationarity
+acf(LA_puffbar_arima)
+pacf(LA_puffbar_arima)
+adf.test(LA_puffbar_arima)
+
+#Convert
+LA_puffbar_fit <- auto.arima(LA_puffbar_arima,
+                        ic = "aic",
+                        trace = TRUE)
+
+#Best model: 
+acf(LA_puffbar_fit$residuals)
+pacf(LA_puffbar_fit$residuals)
+
+#Forecast
+LA_puffbar_forecast <- forecast(LA_puffbar_fit,
+                            level = c(95),
+                            h=52)
+
+autoplot(LA_puffbar_forecast)
+
+Box.test(LA_puffbar_forecast$residuals,
+         lag = 5, 
+         type = "Ljung-Box")
+
+#Check residuals
+checkresiduals(LA_puffbar_fit)
+```
+```{r LA Puff Bar ARIMA Plot}
+# Split in two
+LA_Puffbar_Predicted <- subset(LA_puffbar_arima, end = 22)
+LA_Puffbar_Actual <- subset(LA_puffbar_arima, start = 22)
+
+# Fit model
+LA_PuffBar_fit_arima <- auto.arima(LA_Puffbar_Predicted, 
+                        ic = "aic")
+
+# Compute forecasts
+LA_puffbar_fcst <- forecast(LA_PuffBar_fit_arima,
+                 level = c(95),
+                 h = 43)
+
+# Plot forecasts and test set
+LA_PuffBar_FINAL <- autoplot(LA_puffbar_fcst,
+                          ylim = c(0,100)) + 
+autolayer(LA_Puffbar_Actual) + 
+ggtitle("Puff Bar Google Search Queries",
+        subtitle = "Los Angeles") +
+theme_classic() 
+```
+```{r LA FINAL PLOT}
+LA_res <- list(a = LA_Hookah_FINAL,
+            b = LA_PuffBar_FINAL)
+
+autoplot(LA_res,
+         ylim = c(0,100))+
+xlab("Date") + 
+ylab("Search Volume, RSV") +
+theme(legend.position="none") +
+geom_vline(xintercept=c(2020.66, 
+                        2021.0),
+           linetype='dashed',
+           color=c('blue', 'red')) +
+annotate(geom = "text",
+         label =  c("SB793", "Referendum"),
+         x = c(2020.66, 2021.02),
+         y = c(1, 4),
+         angle = 90, 
+         vjust = 1,
+         size = 3) +
+scale_x_continuous(breaks = c(2020.2,
+                              2020.66,
+                              2021.0,
+                              2021.5,
+                              2022.0),
+                   label = c("4/20",
+                             "8/20",
+                             "1/21", 
+                             "6/21",
+                             "1/22")
+)  
+
+```
+```{r LA Linear Models-Baseline}
+#Subset the baseline period 
+LA_Baseline <- LA_data_wide[c(1:21),]
+
+#Baseline Hookah
+mean(LA_Baseline$hookah)
+sd(LA_Baseline$hookah)
+
+LA_Baseline_lm_hookah <- lm(scale(hookah) ~ scale(date),
+                         data = LA_Baseline)
+
+summary(LA_Baseline_lm_hookah)
+lm.beta(LA_Baseline_lm_hookah)
+confint(LA_Baseline_lm_hookah)
+
+#Baseline Puff Bar
+mean(LA_Baseline$`puff bar`)
+sd(LA_Baseline$`puff bar`)
+
+
+LA_Baseline_lm_PB <- lm(scale(`puff bar`) ~ scale(date),
+                     data = LA_Baseline)
+
+summary(LA_Baseline_lm_PB)
+lm.beta(LA_Baseline_lm_PB)
+confint(LA_Baseline_lm_PB)
+```
+```{r LA Linear Models-SB793-Ref}
+#Subset SB793 to Referendum
+LA_Ref <- LA_data_wide[c(22:43),]
+
+#Hookah
+mean(LA_Ref$hookah)
+sd(LA_Ref$hookah)
+
+LA_Ref_lm_hookah <- lm(scale(hookah) ~ scale(date),
+                    data = LA_Ref)
+
+summary(LA_Ref_lm_hookah)
+lm.beta(LA_Ref_lm_hookah)
+confint(LA_Ref_lm_hookah)
+
+
+#Puff Bar
+mean(LA_Ref$`puff bar`)
+sd(LA_Ref$`puff bar`)
+
+LA_Ref_lm_PB <- lm(scale(`puff bar`) ~ scale(date),
+                data = LA_Ref)
+
+summary(LA_Ref_lm_PB)
+lm.beta(LA_Ref_lm_PB)
+confint(LA_Ref_lm_PB)
+```
+```{r LA Linear Models-Ref-Post}
+#Subset Ref-Posts
+LA_Post <- LA_data_wide[c(44:65),]
+
+# Hookah
+mean(LA_Post$hookah)
+sd(LA_Post$hookah)
+
+LA_Post_hookah <- lm(scale(hookah) ~ scale(date),
+                    data = LA_Post)
+
+summary(LA_Post_hookah)
+lm.beta(LA_Post_hookah)
+confint(LA_Post_hookah)
+
+
+# Puff Bar
+mean(LA_Post$`puff bar`)
+sd(LA_Post$`puff bar`)
+
+LA_Post_PB <- lm(scale(`puff bar`) ~ scale(date),
+                data = LA_Post)
+summary(LA_Post_PB)
+lm.beta(LA_Post_PB)
+confint(LA_Post_PB)
+```
+
+### San Francisco-Oakland-San Jose
+```{r San Francisco}
+#Baseline
+search_terms <- c("puff bar",
+                  "hookah")
+
+SF_results <- gtrends(keyword = search_terms,
+        time = "2020-04-05 2021-06-27",
+        geo = "US-CA-807",
+        low_search_volume = TRUE)
+
+plot(SF_results)
+
+```
+```{r Download SF Datasets}
+#Interest over time
+SF_Interest_Time <- SF_results[["interest_over_time"]]
+
+#Interest by Metro areas
+SF_Interest_DMA <- SF_results[["interest_by_dma"]]
+
+#Interest by City
+SF_Interest_City <- SF_results[["interest_by_city"]]
+
+```
+```{r Create SF time series object}
+#Create time series object
+SF_data_wide <- dcast(SF_Interest_Time, 
+                   date ~ keyword, 
+                   value.var="hits")
+#Convert to numeric
+SF_data_wide$hookah <- as.numeric(SF_data_wide$hookah)
+SF_data_wide$`puff bar` <- as.numeric(SF_data_wide$`puff bar`)
+
+#Final ts object
+SF_TimeSeries <- ts(SF_data_wide,
+                 start=decimal_date(ymd("2020-04-05")),
+                 frequency = 365.25/7)
+
+
+```
+```{r SF Hookah ARIMA Fit}
+#hookah ARIMA
+SF_hookah_arima <- SF_TimeSeries[,2]
+
+#Testing for stationarity
+acf(SF_hookah_arima)
+pacf(SF_hookah_arima)
+adf.test(SF_hookah_arima)
+
+#Convert
+SF_hookah_fit <- auto.arima(SF_hookah_arima,
+                        ic = "aic",
+                        trace = TRUE)
+
+#Best model: ARIMA(2,0,0)
+acf(SF_hookah_arima$residuals)
+pacf(SF_hookah_arima$residuals)
+
+#Forecast
+SF_hookah_forecast <- forecast(SF_hookah_fit,
+                            level = c(95),
+                            h=52)
+
+autoplot(SF_hookah_forecast)
+
+Box.test(SF_hookah_forecast$residuals,
+         SF = 5, 
+         type = "Ljung-Box")
+
+#Check residuals
+checkresiduals(SF_hookah_fit)
+```
+```{r SF Hookah ARIMA Plot}
+# Split in two
+SF_Hookah_Predicted <- subset(SF_hookah_arima, end = 22)
+SF_Hookah_Actual <- subset(SF_hookah_arima, start = 22)
+
+# Fit model
+SF_Hookah_fit_arima <- auto.arima(SF_Hookah_Predicted, 
+                        ic = "aic",
+                        lambda=0)
+
+# Compute forecasts
+SF_hookah_fcst <- forecast(SF_Hookah_fit_arima,
+                 level = c(95),
+                 h = 43)
+
+#Log Transform the Forecasts
+# Bounds
+ a <- 0
+ b <- 100
+ # Transform data
+ SF_y <- log((SF_Hookah_Predicted-a)/(b-SF_Hookah_Predicted))
+ SF_fit <- ets(SF_y)
+ SF_fc <- forecast(SF_fit, h=43)
+ # Back-transform forecasts
+ SF_fc$mean <- (b-a)*exp(SF_fc$mean)/(1+exp(SF_fc$mean)) + a
+ SF_fc$lower <- (b-a)*exp(SF_fc$lower)/(1+exp(SF_fc$lower)) + a
+ SF_fc$upper <- (b-a)*exp(SF_fc$upper)/(1+exp(SF_fc$upper)) + a
+ SF_fc$x <- SF_Hookah_Predicted
+
+
+ # Plot forecasts and test set
+SF_Hookah_FINAL <- 
+  autoplot(SF_fc,
+           ylim = c(0,100)) + 
+  autolayer(SF_Hookah_Actual) + 
+  ggtitle("",
+    subtitle = "San Francisco-Oakland-San Jose") +
+  theme_classic()
+```
+```{r SF Puff Bar ARIMA Fit}
+#puffbar ARIMA
+SF_puffbar_arima <- SF_TimeSeries[,3]
+
+#Testing for stationarity
+acf(SF_puffbar_arima)
+pacf(SF_puffbar_arima)
+adf.test(SF_puffbar_arima)
+
+#Convert
+SF_puffbar_fit <- auto.arima(SF_puffbar_arima,
+                        ic = "aic",
+                        trace = TRUE)
+
+#Best model: 
+acf(SF_puffbar_fit$residuals)
+pacf(SF_puffbar_fit$residuals)
+
+#Forecast
+SF_puffbar_forecast <- forecast(SF_puffbar_fit,
+                            level = c(95),
+                            h=52)
+
+autoplot(SF_puffbar_forecast)
+
+Box.test(SF_puffbar_forecast$residuals,
+         SFg = 5, 
+         type = "Ljung-Box")
+
+#Check residuals
+checkresiduals(SF_puffbar_fit)
+```
+```{r SF Puff Bar ARIMA Plot}
+# Split in two
+SF_Puffbar_Predicted <- subset(SF_puffbar_arima, end = 22)
+SF_Puffbar_Actual <- subset(SF_puffbar_arima, start = 22)
+
+# Fit model
+SF_PuffBar_fit_arima <- auto.arima(SF_Puffbar_Predicted, 
+                        ic = "aic")
+
+# Compute forecasts
+SF_puffbar_fcst <- forecast(SF_PuffBar_fit_arima,
+                 level = c(95),
+                 h = 43)
+
+# Plot forecasts and test set
+SF_PuffBar_FINAL <- autoplot(SF_puffbar_fcst,
+                          ylim = c(0,100)) + 
+autolayer(SF_Puffbar_Actual) + 
+ggtitle("",
+        subtitle = "San Francisco-Oakland-San Jose") +
+theme_classic() 
+```
+```{r SF FINAL PLOT}
+SF_res <- list(a = SF_Hookah_FINAL,
+            b = SF_PuffBar_FINAL)
+
+autoplot(SF_res,
+         ylim = c(0,100))+
+xlab("Date") + 
+ylab("Search Volume, RSV") +
+theme(legend.position="none") +
+geom_vline(xintercept=c(2020.66, 
+                        2021.0),
+           linetype='dashed',
+           color=c('blue', 'red')) +
+annotate(geom = "text",
+         label =  c("SB793", "Referendum"),
+         x = c(2020.66, 2021.02),
+         y = c(1, 4),
+         angle = 90, 
+         vjust = 1,
+         size = 3) +
+scale_x_continuous(breaks = c(2020.2,
+                              2020.66,
+                              2021.0,
+                              2021.5,
+                              2022.0),
+                   label = c("4/20",
+                             "8/20",
+                             "1/21", 
+                             "6/21",
+                             "1/22")
+                   )  
+
+
+
+
+```
+```{r SF Linear Models-Baseline}
+#Subset the baseline period 
+SF_Baseline <- SF_data_wide[c(1:21),]
+
+#Baseline Hookah
+mean(SF_Baseline$hookah)
+sd(SF_Baseline$hookah)
+
+SF_Baseline_lm_hookah <- lm(scale(hookah) ~ scale(date),
+                         data = SF_Baseline)
+
+summary(SF_Baseline_lm_hookah)
+lm.beta(SF_Baseline_lm_hookah)
+confint(SF_Baseline_lm_hookah)
+
+#Baseline Puff Bar
+mean(SF_Baseline$`puff bar`)
+sd(SF_Baseline$`puff bar`)
+
+SF_Baseline_lm_PB <- lm(scale(`puff bar`) ~ scale(date),
+                     data = SF_Baseline)
+
+summary(SF_Baseline_lm_PB)
+lm.beta(SF_Baseline_lm_PB)
+confint(SF_Baseline_lm_PB)
+```
+```{r SF Linear Models-SF793-Ref}
+#Subset SF793 to Referendum
+SF_Ref <- SF_data_wide[c(22:43),]
+
+#Hookah
+mean(SF_Ref$hookah)
+sd(SF_Ref$hookah)
+
+SF_Ref_lm_hookah <- lm(scale(hookah) ~ scale(date),
+                    data = SF_Ref)
+summary(SF_Ref_lm_hookah)
+lm.beta(SF_Ref_lm_hookah)
+confint(SF_Ref_lm_hookah)
+
+
+#Puff Bar
+mean(SF_Ref$`puff bar`)
+sd(SF_Ref$`puff bar`)
+
+SF_Ref_lm_PB <- lm(scale(`puff bar`) ~ scale(date),
+                data = SF_Ref)
+summary(SF_Ref_lm_PB)
+lm.beta(SF_Ref_lm_PB)
+confint(SF_Ref_lm_PB)
+```
+```{r SF Linear Models - Ref-Post}
+#Subset Ref-Posts
+SF_Post <- SF_data_wide[c(44:65),]
+
+# Hookah
+mean(SF_Post$hookah)
+sd(SF_Post$hookah)
+
+SF_Post_hookah <- lm(scale(hookah) ~ scale(date),
+                    data = SF_Post)
+summary(SF_Post_hookah)
+lm.beta(SF_Post_hookah)
+confint(SF_Post_hookah)
+
+
+# Puff Bar
+mean(SF_Post$`puff bar`)
+sd(SF_Post$`puff bar`)
+
+SF_Post_PB <- lm(scale(`puff bar`) ~ scale(date),
+                data = SF_Post)
+summary(SF_Post_PB)
+lm.beta(SF_Post_PB)
+confint(SF_Post_PB)
+```
+### Sacramento-Stockton-Modesto
+```{r Sacramento}
+search_terms <- c("puff bar",
+                  "hookah")
+
+Sac_results <- gtrends(keyword = search_terms,
+        time = "2020-04-05 2021-06-27",
+        geo = "US-CA-862",
+        compared_breakdown = TRUE,
+        low_search_volume = TRUE)
+
+plot(Sac_results)
+```
+```{r Download Sac Datasets}
+#Interest over time
+Sac_Interest_Time <- Sac_results[["interest_over_time"]]
+
+#Interest by Metro areas
+Sac_Interest_DMA <- Sac_results[["interest_by_dma"]]
+
+#Interest by City
+Sac_Interest_City <- Sac_results[["interest_by_city"]]
+
+```
+```{r Create Sac time series object}
+#Create time series object
+Sac_data_wide <- dcast(Sac_Interest_Time, 
+                   date ~ keyword, 
+                   value.var="hits")
+#Convert to numeric
+Sac_data_wide$hookah <- as.numeric(Sac_data_wide$hookah)
+Sac_data_wide$`puff bar` <- as.numeric(Sac_data_wide$`puff bar`)
+
+#Final ts object
+Sac_TimeSeries <- ts(Sac_data_wide,
+                 start=decimal_date(ymd("2020-04-05")),
+                 frequency = 365.25/7)
+
+
+```
+```{r Sac Hookah ARIMA Fit}
+#hookah ARIMA
+Sac_hookah_arima <- Sac_TimeSeries[,2]
+
+#Testing for stationarity
+acf(Sac_hookah_arima)
+pacf(Sac_hookah_arima)
+adf.test(Sac_hookah_arima)
+
+#Convert
+Sac_hookah_fit <- auto.arima(Sac_hookah_arima,
+                        ic = "aic",
+                        trace = TRUE)
+
+#Best model: ARIMA(2,0,0)
+acf(Sac_hookah_arima$residuals)
+pacf(Sac_hookah_arima$residuals)
+
+#Forecast
+Sac_hookah_forecast <- forecast(Sac_hookah_fit,
+                            level = c(95),
+                            h=52)
+
+autoplot(Sac_hookah_forecast)
+
+Box.test(Sac_hookah_forecast$residuals,
+         Sacg = 5, 
+         type = "Ljung-Box")
+
+#Check residuals
+checkresiduals(Sac_hookah_fit)
+```
+```{r Sac Hookah ARIMA Plot}
+# Split in two
+Sac_Hookah_Predicted <- subset(Sac_hookah_arima, end = 22)
+Sac_Hookah_Actual <- subset(Sac_hookah_arima, start = 22)
+
+# Fit model
+Sac_Hookah_fit_arima <- auto.arima(Sac_Hookah_Predicted, 
+                        ic = "aic",
+                        lambda=0)
+
+# Compute forecasts
+Sac_hookah_fcst <- forecast(Sac_Hookah_fit_arima,
+                 level = c(95),
+                 h = 43)
+
+#Log TranSacorm the Forecasts
+# Bounds
+ a <- 0
+ b <- 100
+ # Tranform data
+ Sac_y <- log((Sac_Hookah_Predicted-a)/(b-Sac_Hookah_Predicted))
+ Sac_fit <- ets(Sac_y)
+ Sac_fc <- forecast(Sac_fit, h=43)
+ # Back-tranSacorm forecasts
+ Sac_fc$mean <- (b-a)*exp(Sac_fc$mean)/(1+exp(Sac_fc$mean)) + a
+ Sac_fc$lower <- (b-a)*exp(Sac_fc$lower)/(1+exp(Sac_fc$lower)) + a
+ Sac_fc$upper <- (b-a)*exp(Sac_fc$upper)/(1+exp(Sac_fc$upper)) + a
+ Sac_fc$x <- Sac_Hookah_Predicted
+
+# Plot forecasts and test set
+Sac_Hookah_FINAL <- 
+  autoplot(Sac_fc,
+           ylim = c(0,100)) + 
+  autolayer(Sac_Hookah_Actual) + 
+  ggtitle("",
+          subtitle = "Sacramento-Stockton-Modesto") +
+  theme_classic()
+```
+```{r Sac Puff Bar ARIMA Fit}
+#puffbar ARIMA
+Sac_puffbar_arima <- Sac_TimeSeries[,3]
+
+#Testing for stationarity
+acf(Sac_puffbar_arima)
+pacf(Sac_puffbar_arima)
+adf.test(Sac_puffbar_arima)
+
+#Convert
+Sac_puffbar_fit <- auto.arima(Sac_puffbar_arima,
+                        ic = "aic",
+                        trace = TRUE)
+
+#Best model: 
+acf(Sac_puffbar_fit$residuals)
+pacf(Sac_puffbar_fit$residuals)
+
+#Forecast
+Sac_puffbar_forecast <- forecast(Sac_puffbar_fit,
+                            level = c(95),
+                            h=52)
+
+autoplot(Sac_puffbar_forecast)
+
+Box.test(Sac_puffbar_forecast$residuals,
+         Sacg = 5, 
+         type = "Ljung-Box")
+
+#Check residuals
+checkresiduals(Sac_puffbar_fit)
+```
+```{r Sac Puff Bar ARIMA Plot}
+# Split in two
+Sac_Puffbar_Predicted <- subset(Sac_puffbar_arima, end = 22)
+Sac_Puffbar_Actual <- subset(Sac_puffbar_arima, start = 22)
+
+# Fit model
+Sac_PuffBar_fit_arima <- auto.arima(Sac_Puffbar_Predicted, 
+                        ic = "aic")
+
+# Compute forecasts
+Sac_puffbar_fcst <- forecast(Sac_PuffBar_fit_arima,
+                 level = c(95),
+                 h = 43)
+
+# Plot forecasts and test set
+Sac_PuffBar_FINAL <- autoplot(Sac_puffbar_fcst,
+                          ylim = c(0,100)) + 
+autolayer(Sac_Puffbar_Actual) + 
+ggtitle("",
+        subtitle = "Sacramento-Stockton-Modesto") +
+theme_classic() 
+```
+```{r Sac FINAL PLOT}
+Sac_res <- list(a = Sac_Hookah_FINAL,
+            b = Sac_PuffBar_FINAL)
+
+autoplot(Sac_res,
+         ylim = c(0,100))+
+xlab("Date") + 
+ylab("Search Volume, RSV") +
+theme(legend.position="none") +
+geom_vline(xintercept=c(2020.66, 
+                        2021.0),
+           linetype='dashed',
+           color=c('blue', 'red')) +
+annotate(geom = "text",
+         label =  c("SB793", "Referendum"),
+         x = c(2020.66, 2021.02),
+         y = c(1, 4),
+         angle = 90, 
+         vjust = 1,
+         size = 3) +
+scale_x_continuous(breaks = c(2020.2,
+                              2020.66,
+                              2021.0,
+                              2021.5,
+                              2022.0),
+                   label = c("4/20",
+                             "8/20",
+                             "1/21", 
+                             "6/21",
+                             "1/22")
+                   )  
+
+
+
+
+```
+```{r Sac Linear Models-Baseline}
+#Subset the baseline period 
+Sac_Baseline <- Sac_data_wide[c(1:21),]
+
+#Baseline Hookah
+mean(Sac_Baseline$hookah)
+sd(Sac_Baseline$hookah)
+
+Sac_Baseline_lm_hookah <- lm(scale(hookah) ~ scale(date),
+                         data = Sac_Baseline)
+
+summary(Sac_Baseline_lm_hookah)
+lm.beta(Sac_Baseline_lm_hookah)
+confint(Sac_Baseline_lm_hookah)
+
+#Baseline Puff Bar
+mean(Sac_Baseline$`puff bar`)
+sd(Sac_Baseline$`puff bar`)
+
+Sac_Baseline_lm_PB <- lm(scale(`puff bar`) ~ scale(date),
+                     data = Sac_Baseline)
+
+summary(Sac_Baseline_lm_PB)
+lm.beta(Sac_Baseline_lm_PB)
+confint(Sac_Baseline_lm_PB)
+```
+```{r Sac Linear Models-Sac793-Ref}
+#Subset Sac793 to Referendum
+Sac_Ref <- Sac_data_wide[c(22:43),]
+
+#Hookah
+mean(Sac_Ref$hookah)
+sd(Sac_Ref$hookah)
+
+Sac_Ref_lm_hookah <- lm(scale(hookah) ~ scale(date),
+                    data = Sac_Ref)
+summary(Sac_Ref_lm_hookah)
+lm.beta(Sac_Ref_lm_hookah)
+confint(Sac_Ref_lm_hookah)
+
+
+#Puff Bar
+mean(Sac_Ref$`puff bar`)
+sd(Sac_Ref$`puff bar`)
+
+Sac_Ref_lm_PB <- lm(scale(`puff bar`) ~ scale(date),
+                data = Sac_Ref)
+summary(Sac_Ref_lm_PB)
+lm.beta(Sac_Ref_lm_PB)
+confint(Sac_Ref_lm_PB)
+```
+```{r Sac Linear Models - Ref-Post}
+#Subset Ref-Posts
+Sac_Post <- Sac_data_wide[c(44:65),]
+
+# Hookah
+mean(Sac_Post$hookah)
+sd(Sac_Post$hookah)
+
+Sac_Post_hookah <- lm(scale(hookah) ~ scale(date),
+                    data = Sac_Post)
+summary(Sac_Post_hookah)
+lm.beta(Sac_Post_hookah)
+confint(Sac_Post_hookah)
+
+
+# Puff Bar
+mean(Sac_Post$`puff bar`)
+sd(Sac_Post$`puff bar`)
+
+Sac_Post_PB <- lm(scale(`puff bar`) ~ scale(date),
+                data = Sac_Post)
+summary(Sac_Post_PB)
+lm.beta(Sac_Post_PB)
+confint(Sac_Post_PB)
+```
+### San Diego
+```{r San Diego}
+#Baseline
+search_terms <- c("puff bar",
+                  "hookah")
+
+SD_results <- gtrends(keyword = search_terms,
+        time = "2020-04-05 2021-06-27",
+        geo = "US-CA-825",
+        compared_breakdown = TRUE,
+        low_search_volume = TRUE)
+
+plot(SD_results)
+
+```
+```{r Download SD Datasets}
+#Interest over time
+SD_Interest_Time <- SD_results[["interest_over_time"]]
+
+#Interest by Metro areas
+SD_Interest_DMA <- SD_results[["interest_by_dma"]]
+
+#Interest by City
+SD_Interest_City <- SD_results[["interest_by_city"]]
+
+```
+```{r Create SD time series object}
+#Create time series object
+SD_data_wide <- dcast(SD_Interest_Time, 
+                   date ~ keyword, 
+                   value.var="hits")
+#Convert to numeric
+SD_data_wide$hookah <- as.numeric(SD_data_wide$hookah)
+SD_data_wide$`puff bar` <- as.numeric(SD_data_wide$`puff bar`)
+
+#Final ts object
+SD_TimeSeries <- ts(SD_data_wide,
+                 start=decimal_date(ymd("2020-04-05")),
+                 frequency = 365.25/7)
+
+
+```
+```{r SD Hookah ARIMA Fit}
+#hookah ARIMA
+SD_hookah_arima <- SD_TimeSeries[,2]
+
+#Testing for stationarity
+acf(SD_hookah_arima)
+pacf(SD_hookah_arima)
+adf.test(SD_hookah_arima)
+
+#Convert
+SD_hookah_fit <- auto.arima(SD_hookah_arima,
+                        ic = "aic",
+                        trace = TRUE)
+
+#Best model: ARIMA(2,0,0)
+acf(SD_hookah_arima$residuals)
+pacf(SD_hookah_arima$residuals)
+
+#Forecast
+SD_hookah_forecast <- forecast(SD_hookah_fit,
+                            level = c(95),
+                            h=52)
+
+autoplot(SD_hookah_forecast)
+
+Box.test(SD_hookah_forecast$residuals,
+         SDg = 5, 
+         type = "Ljung-Box")
+
+#Check residuals
+checkresiduals(SD_hookah_fit)
+```
+```{r SD Hookah ARIMA Plot}
+# Split in two
+SD_Hookah_Predicted <- subset(SD_hookah_arima, end = 22)
+SD_Hookah_Actual <- subset(SD_hookah_arima, start = 22)
+
+# Fit model
+SD_Hookah_fit_arima <- auto.arima(SD_Hookah_Predicted, 
+                        ic = "aic",
+                        SDmbda=0)
+
+# Compute forecasts
+SD_hookah_fcst <- forecast(SD_Hookah_fit_arima,
+                 level = c(95),
+                 h = 43)
+
+#Log TranSDorm the Forecasts
+# Bounds
+ a <- 0
+ b <- 100
+ # TranSDorm data
+ SD_y <- log((SD_Hookah_Predicted-a)/(b-SD_Hookah_Predicted))
+ SD_fit <- ets(SD_y)
+ SD_fc <- forecast(SD_fit, h=43)
+ # Back-tranSDorm forecasts
+ SD_fc$mean <- (b-a)*exp(SD_fc$mean)/(1+exp(SD_fc$mean)) + a
+ SD_fc$lower <- (b-a)*exp(SD_fc$lower)/(1+exp(SD_fc$lower)) + a
+ SD_fc$upper <- (b-a)*exp(SD_fc$upper)/(1+exp(SD_fc$upper)) + a
+ SD_fc$x <- SD_Hookah_Predicted
+
+# Plot forecasts and test set
+SD_Hookah_FINAL <- 
+  autoplot(SD_fc,
+           ylim = c(0,100)) + 
+  autolayer(SD_Hookah_Actual) + 
+  ggtitle("",
+          subtitle = "San Diego") +
+  theme_classic()
+```
+```{r SD Puff Bar ARIMA Fit}
+#puffbar ARIMA
+SD_puffbar_arima <- SD_TimeSeries[,3]
+
+#Testing for stationarity
+acf(SD_puffbar_arima)
+pacf(SD_puffbar_arima)
+adf.test(SD_puffbar_arima)
+
+#Convert
+SD_puffbar_fit <- auto.arima(SD_puffbar_arima,
+                        ic = "aic",
+                        trace = TRUE)
+
+#Best model: 
+acf(SD_puffbar_fit$residuals)
+pacf(SD_puffbar_fit$residuals)
+
+#Forecast
+SD_puffbar_forecast <- forecast(SD_puffbar_fit,
+                            level = c(95),
+                            h=52)
+
+autoplot(SD_puffbar_forecast)
+
+Box.test(SD_puffbar_forecast$residuals,
+         SDg = 5, 
+         type = "Ljung-Box")
+
+#Check residuals
+checkresiduals(SD_puffbar_fit)
+```
+```{r SD Puff Bar ARIMA Plot}
+# Split in two
+SD_Puffbar_Predicted <- subset(SD_puffbar_arima, end = 22)
+SD_Puffbar_Actual <- subset(SD_puffbar_arima, start = 22)
+
+# Fit model
+SD_PuffBar_fit_arima <- auto.arima(SD_Puffbar_Predicted, 
+                        ic = "aic")
+
+# Compute forecasts
+SD_puffbar_fcst <- forecast(SD_PuffBar_fit_arima,
+                 level = c(95),
+                 h = 43)
+
+# Plot forecasts and test set
+SD_PuffBar_FINAL <- autoplot(SD_puffbar_fcst,
+                          ylim = c(0,100)) + 
+autolayer(SD_Puffbar_Actual) + 
+ggtitle("",
+        subtitle = "San Diego") +
+theme_classic() 
+```
+```{r SD FINAL PLOT}
+SD_res <- list(a = SD_Hookah_FINAL,
+            b = SD_PuffBar_FINAL)
+
+autoplot(SD_res,
+         ylim = c(0,100))+
+xlab("Date") + 
+ylab("Search Volume, RSV") +
+theme(legend.position="none") +
+geom_vline(xintercept=c(2020.66, 
+                        2021.0),
+           linetype='dashed',
+           color=c('blue', 'red')) +
+annotate(geom = "text",
+         label =  c("SB793", "Referendum"),
+         x = c(2020.66, 2021.02),
+         y = c(1, 4),
+         angle = 90, 
+         vjust = 1,
+         size = 3) +
+scale_x_continuous(breaks = c(2020.2,
+                              2020.66,
+                              2021.0,
+                              2021.5,
+                              2022.0),
+                   label = c("4/20",
+                             "8/20",
+                             "1/21", 
+                             "6/21",
+                             "1/22")
+                   )  
+
+
+
+
+```
+```{r SD Linear Models-Baseline}
+#Subset the baseline period 
+SD_Baseline <- SD_data_wide[c(1:21),]
+
+#Baseline Hookah
+mean(SD_Baseline$hookah)
+sd(SD_Baseline$hookah)
+
+SD_Baseline_lm_hookah <- lm(scale(hookah) ~ scale(date),
+                         data = SD_Baseline)
+
+summary(SD_Baseline_lm_hookah)
+lm.beta(SD_Baseline_lm_hookah)
+confint(SD_Baseline_lm_hookah)
+
+#Baseline Puff Bar
+mean(SD_Baseline$`puff bar`)
+sd(SD_Baseline$`puff bar`)
+
+SD_Baseline_lm_PB <- lm(scale(`puff bar`) ~ scale(date),
+                     data = SD_Baseline)
+
+summary(SD_Baseline_lm_PB)
+lm.beta(SD_Baseline_lm_PB)
+confint(SD_Baseline_lm_PB)
+```
+```{r SD Linear Models-SD793-Ref}
+#Subset SD793 to Referendum
+SD_Ref <- SD_data_wide[c(22:43),]
+
+#Hookah
+mean(SD_Ref$hookah)
+sd(SD_Ref$hookah)
+
+SD_Ref_lm_hookah <- lm(scale(hookah) ~ scale(date),
+                    data = SD_Ref)
+summary(SD_Ref_lm_hookah)
+lm.beta(SD_Ref_lm_hookah)
+confint(SD_Ref_lm_hookah)
+
+
+#Puff Bar
+mean(SD_Ref$`puff bar`)
+sd(SD_Ref$`puff bar`)
+
+SD_Ref_lm_PB <- lm(scale(`puff bar`) ~ scale(date),
+                data = SD_Ref)
+summary(SD_Ref_lm_PB)
+lm.beta(SD_Ref_lm_PB)
+confint(SD_Ref_lm_PB)
+```
+```{r SD Linear Models-Ref-Post}
+#Subset Ref-Posts
+SD_Post <- SD_data_wide[c(44:65),]
+
+# Hookah
+mean(SD_Post$hookah)
+sd(SD_Post$hookah)
+
+SD_Post_hookah <- lm(scale(hookah) ~ scale(date),
+                    data = SD_Post)
+summary(SD_Post_hookah)
+lm.beta(SD_Post_hookah)
+confint(SD_Post_hookah)
+
+
+# Puff Bar
+mean(SD_Post$`puff bar`)
+sd(SD_Post$`puff bar`)
+
+SD_Post_PB <- lm(scale(`puff bar`) ~ scale(date),
+                data = SD_Post)
+summary(SD_Post_PB)
+lm.beta(SD_Post_PB)
+confint(SD_Post_PB)
+```
+### FINAL PLOT
+```{r FINAL PLOT}
+res_FINAL <- list(a = LA_PuffBar_FINAL,
+                  b = LA_Hookah_FINAL,
+                  c = SF_PuffBar_FINAL,
+                  d = SF_Hookah_FINAL,
+                  e = SD_PuffBar_FINAL,
+                  f = SD_Hookah_FINAL,
+                  g = Sac_PuffBar_FINAL,
+                  h = Sac_Hookah_FINAL)
+
+autoplot(res_FINAL,
+         ylim = c(0,100))+
+xlab("Date - Month/Year") + 
+ylab("Search Volume, RSV") +
+theme(legend.position="none") +
+geom_vline(xintercept=c(2020.66, 
+                        2021.0),
+           linetype='dashed',
+           color=c('blue', 'red')) +
+annotate(geom = "text",
+         label =  c("SB793", "Ref."),
+         x = c(2020.66, 2021.0),
+         y = c(5, 0.8),
+         angle = 90, 
+         vjust = 1,
+         size = 3) +
+scale_x_continuous(breaks = c(2020.2,
+                              2020.66,
+                              2021.0,
+                              2021.5,
+                              2022.0),
+                   label = c("4/20",
+                             "8/20",
+                             "1/21", 
+                             "6/21",
+                             "1/22")
+                   )  
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r Explore}
+search_terms <- c("Zyn",
+                  "Velo")
+
+
+output_results <- gtrends(keyword = search_terms,
+        time = "2019-01-05 2022-05-01",
+        geo = "US",
+        low_search_volume = TRUE)
+
+plot(output_results)
+```
+
+
+
+# Nicotine Gum
+```{r Packages and import data from Excel}
+library(readxl)
+library(udpipe)
+library(data.table)
+library(stopwords)
+library(BTM)
+library(textplot)
+library(ggraph)
+library(tidyverse)
+library(tidytext)
+library(concaveman)
+library(tidytext)
+library(schrute)
+library(syuzhet)
+
+#NicotineGum_Final <- read_excel("~/Desktop/USC/NicotineGum/Data/Roberta_Data_0_17.xlsx")
+NicotineGum_Final <- read_excel("~/Desktop/USC/NicotineGum/Data/Roberta_Outliers_Data.xlsx")
+
+```
+## Biterm Topic Model
+```{r Biterm Topic Model}
+nicotine_gum <- NicotineGum_Final[, c(1, 7)]
+nicotine_gum.2 <- nicotine_gum[, c(1,2)]
+colnames(nicotine_gum.2)[1] = "doc_id"
+x <- nicotine_gum.2[c(1:1000), ]
+
+anno <- udpipe(x, 
+               "english", 
+               trace = 10)
+
+biterms <- as.data.table(anno)
+biterms <- biterms[, cooccurrence(x = lemma,
+           relevant = upos %in% c("NOUN", 
+                                  "ADJ", 
+                                  "VERB") & 
+            nchar(lemma) > 2 & !lemma %in%
+            stopwords("en"),
+            skipgram = 3),
+            by = list(doc_id)]
+
+
+set.seed(123456)
+traindata <- subset(anno, 
+                    upos %in% c("NOUN", "ADJ",
+                    "VERB") & !lemma %in%
+                    stopwords("en") & 
+                    nchar(lemma) > 2)
+
+traindata <- traindata[, c("doc_id", "lemma")]
+model     <- BTM(traindata, 
+                 biterms = biterms, 
+                 k = 10, 
+                 iter = 1000, 
+                 background = TRUE, 
+                 trace = 100)
+
+## Inspect the model - topic frequency + conditional term probabilities
+topicterms <- terms(model,
+                    type = "biterms",
+                    top_n = 10)
+topicterms
+
+Biterms.df <- as.data.frame(topicterms[["biterms"]])
+Phi <- as.data.frame(model[["phi"]])
+
+plot(model, top_n = 3)
+
+
+
+
+```
+## Validation Process on Unsupervised
+```{r Validation}
+#Personal Experience
+PersonalExperience <- NicotineGum_Final[(NicotineGum_Final$Topic_Label == "Personal Experience"), ]
+
+PersonalExperience <-PersonalExperience[sample(nrow(PersonalExperience), 245), ]
+
+#Addiction
+Addiction <- NicotineGum_Final[(NicotineGum_Final$Topic_Label == "Addiction"), ]
+
+Addiction <-Addiction[sample(nrow(Addiction), 235), ]
+
+#Harm Perception
+HarmPerception <- NicotineGum_Final[(NicotineGum_Final$Topic_Label == "Harm Perception"), ]
+
+HarmPerception <-HarmPerception[sample(nrow(HarmPerception), 174), ]
+
+#Sensory Experience
+SensoryExperience <- NicotineGum_Final[(NicotineGum_Final$Topic_Label == "Sensory Experience"), ]
+
+SensoryExperience <-SensoryExperience[sample(nrow(SensoryExperience), 145), ]
+
+#ProductComparison
+ProductComparison <- NicotineGum_Final[(NicotineGum_Final$Topic_Label == "Product Comparison"), ]
+
+ProductComparison <-ProductComparison[sample(nrow(ProductComparison), 72), ]
+
+#Polysub
+Polysub <- NicotineGum_Final[(NicotineGum_Final$Topic_Label == "Polysub"), ]
+
+Polysub <-Polysub[sample(nrow(Polysub), 39), ]
+
+#Flavors
+Flavors <- NicotineGum_Final[(NicotineGum_Final$Topic_Label == "Flavors"), ]
+
+Flavors <-Flavors[sample(nrow(Flavors), 35), ]
+
+#Research
+Research <- NicotineGum_Final[(NicotineGum_Final$Topic_Label == "Research"), ]
+
+Research <-Research[sample(nrow(Research), 22), ]
+
+#PromotingCessation
+PromotingCessation <- NicotineGum_Final[(NicotineGum_Final$Topic_Label == "PromotingCessation"), ]
+
+PromotingCessation <-PromotingCessation[sample(nrow(PromotingCessation), 22), ]
+
+#ProtectiveAgent
+ProtectiveAgent <- NicotineGum_Final[(NicotineGum_Final$Topic_Label == "Protective Agent"), ]
+
+ProtectiveAgent <-ProtectiveAgent[sample(nrow(ProtectiveAgent), 11), ]
+
+```
+```{r Merge data}
+NicGum_Validation <- 
+rbind(
+PersonalExperience,
+Addiction,
+HarmPerception,
+SensoryExperience,
+ProductComparison,
+Polysub,
+Flavors,
+Research,
+PromotingCessation,
+ProtectiveAgent
+)
+
+NicGum_Validation <- as.data.frame(NicGum_Validation)
+
+#write_csv(NicGum_Validation, "NicGum_Validation.csv")
+write_csv(PersonalExperience, "Personal.csv")
+```
+```{r Interrater Reliability}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+
+NicGum_Validation <- read_excel("~/Desktop/USC/NicotineGum/NicGum_Validation.xlsm")
+
+#Overall
+Overall_PAgree <-NicGum_Validation %>% select(Scott, Manan)
+agree(NicGum_Validation2)
+
+#Personal Experience (90.8)
+Personal_PAgree <-NicGum_Validation[c(1:245), ] %>% select(Scott, Manan)
+agree(Personal_PAgree)
+
+#Addiction (71.4)
+Addiction_PAgree <-NicGum_Validation[c(246:480), ] %>% select(Scott, Manan)
+agree(Addiction_PAgree)
+
+#Harm (75.6)
+Harm_PAgree <-NicGum_Validation[c(481:654), ] %>% select(Scott, Manan)
+agree(Harm_PAgree)
+
+#Sensory (70.7)
+Sensory_PAgree <-NicGum_Validation[c(655:799), ] %>% select(Scott, Manan)
+agree(Sensory_PAgree)
+
+#Product (75.6)
+Product_PAgree <-NicGum_Validation[c(800:871), ] %>% select(Scott, Manan)
+agree(Product_PAgree)
+
+#Poly (82.1)
+Poly_PAgree <-NicGum_Validation[c(872:910), ] %>% select(Scott, Manan)
+agree(Poly_PAgree)
+
+#Flavors (65.7)
+Flavors_PAgree <-NicGum_Validation[c(911:945), ] %>% select(Scott, Manan)
+agree(Flavors_PAgree)
+
+#Research (54.5)
+Research_PAgree <-NicGum_Validation[c(946:967), ] %>% select(Scott, Manan)
+agree(Research_PAgree)
+
+#Promotion (77.3)
+Promotion_PAgree <-NicGum_Validation[c(968:989), ] %>% select(Scott, Manan)
+agree(Promotion_PAgree)
+
+#Protect (81.8)
+Protect_PAgree <-NicGum_Validation[c(990:1000), ] %>% select(Scott, Manan)
+agree(Protect_PAgree)
+
+```
+## Validation Process on Unsupervised FINAL
+```{r Validation}
+#Personal Experience
+Effectiveness <- NicotineGum_Final[(NicotineGum_Final$topic_label == "Effectiveness of Nicotine Gum"), ]
+
+Effectiveness <-Effectiveness[sample(nrow(Effectiveness), 332), ]
+
+#Alternatives to Gum
+Alternatives <- NicotineGum_Final[(NicotineGum_Final$topic_label == "Alternatives to Gum"), ]
+
+Alternatives <-Alternatives[sample(nrow(Alternatives), 143), ]
+
+#Nicotine addiction
+Addiction <- NicotineGum_Final[(NicotineGum_Final$topic_label == "Addiction"), ]
+
+Addiction <-Addiction [sample(nrow(Addiction ), 74), ]
+
+#Distrust for Authority and Big Pharma
+Distrust <- NicotineGum_Final[(NicotineGum_Final$topic_label == "Distrust"), ]
+
+Distrust <-Distrust[sample(nrow(Distrust), 76), ]
+
+#Harm Perception
+HarmPerception <- NicotineGum_Final[(NicotineGum_Final$topic_label == "Harm Perception"), ]
+
+HarmPerception <-HarmPerception[sample(nrow(HarmPerception), 62), ]
+
+#Romanticization of Nicotine Gum Addiction
+Romance <- NicotineGum_Final[(NicotineGum_Final$topic_label == "Romanticization"), ]
+
+Romance <-Romance[sample(nrow(Romance), 5), ]
+
+#Polysubstance Use
+Poly <- NicotineGum_Final[(NicotineGum_Final$topic_label == "Polysubstance Use"), ]
+
+Poly <-Poly[sample(nrow(Poly), 37), ]
+
+#Parental Experiences
+ParentalExperiences <- NicotineGum_Final[(NicotineGum_Final$topic_label == "Parental Experiences"), ]
+
+ParentalExperiences <-ParentalExperiences[sample(nrow(ParentalExperiences), 5), ]
+
+#Promotion
+Promotion <- NicotineGum_Final[(NicotineGum_Final$topic_label == "Promotion"), ]
+
+Promotion <-Promotion[sample(nrow(Promotion), 28), ]
+
+#Purchasing
+Purchasing <- NicotineGum_Final[(NicotineGum_Final$topic_label == "Purchasing"), ]
+
+Purchasing <-Purchasing[sample(nrow(Purchasing), 42), ]
+
+#COVID
+COVID <- NicotineGum_Final[(NicotineGum_Final$topic_label == "COVID"), ]
+
+COVID <-COVID[sample(nrow(COVID), 8), ]
+
+#General User Experiences
+General <- NicotineGum_Final[(NicotineGum_Final$topic_label == "General User Experiences"), ]
+
+General <-General[sample(nrow(General), 186), ]
+
+```
+```{r Merge data}
+NicGum_Validation <- 
+rbind(
+Effectiveness,
+Alternatives,
+Addiction,
+Distrust,
+HarmPerception,
+Romance,
+Poly,
+Promotion,
+Purchasing,
+COVID,
+General,
+ParentalExperiences
+)
+
+NicGum_Validation <- as.data.frame(NicGum_Validation)
+
+#write_csv(NicGum_Validation, "NicGum_Validation.csv")
+write_csv(NicGum_Validation, "NicGum_Validation.csv")
+```
+```{r Interrater Reliability}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+
+NicGum_Validation <- read_excel("~/Desktop/USC/NicotineGum/NicGum_Validation.xlsm")
+
+#Overall
+Overall_PAgree <-NicGum_Validation %>% select(Scott, Manan)
+agree(NicGum_Validation2)
+
+#Personal Experience (90.8)
+Personal_PAgree <-NicGum_Validation[c(1:245), ] %>% select(Scott, Manan)
+agree(Personal_PAgree)
+
+#Addiction (71.4)
+Addiction_PAgree <-NicGum_Validation[c(246:480), ] %>% select(Scott, Manan)
+agree(Addiction_PAgree)
+
+#Harm (75.6)
+Harm_PAgree <-NicGum_Validation[c(481:654), ] %>% select(Scott, Manan)
+agree(Harm_PAgree)
+
+#Sensory (70.7)
+Sensory_PAgree <-NicGum_Validation[c(655:799), ] %>% select(Scott, Manan)
+agree(Sensory_PAgree)
+
+#Product (75.6)
+Product_PAgree <-NicGum_Validation[c(800:871), ] %>% select(Scott, Manan)
+agree(Product_PAgree)
+
+#Poly (82.1)
+Poly_PAgree <-NicGum_Validation[c(872:910), ] %>% select(Scott, Manan)
+agree(Poly_PAgree)
+
+#Flavors (65.7)
+Flavors_PAgree <-NicGum_Validation[c(911:945), ] %>% select(Scott, Manan)
+agree(Flavors_PAgree)
+
+#Research (54.5)
+Research_PAgree <-NicGum_Validation[c(946:967), ] %>% select(Scott, Manan)
+agree(Research_PAgree)
+
+#Promotion (77.3)
+Promotion_PAgree <-NicGum_Validation[c(968:989), ] %>% select(Scott, Manan)
+agree(Promotion_PAgree)
+
+#Protect (81.8)
+Protect_PAgree <-NicGum_Validation[c(990:1000), ] %>% select(Scott, Manan)
+agree(Protect_PAgree)
+
+```
+## Naive Bayes Classifier
+```{r NB}
+library(quanteda)
+library(quanteda.textmodels)
+library(caret)
+library(readxl)
+
+NicGum_Validation <- read_excel("~/Desktop/USC/NicotineGum/Data/NicGum_Validation.xlsm")
+
+
+# Classify Addiction
+Addiction <- NicGum_Validation[which(NicGum_Validation$Topic_Label=="Addiction"), ]
+
+Addiction$Final <- as.factor(Addiction$Final)
+
+#Create corpus
+corp <- corpus(Addiction, text_field = "text")
+print(corp)
+
+# generate 1500 numbers without replacement
+set.seed(300)
+id_train <- sample(1:235, 200, replace = FALSE)
+head(id_train, 10)
+
+# create docvar with ID
+corp$id_numeric <- 1:ndoc(corp)
+
+# tokenize texts
+toks <- tokens(corp, 
+               remove_punct = TRUE, 
+               remove_number = TRUE) %>% 
+               tokens_remove(pattern = stopwords("en")) %>% 
+               tokens_wordstem()
+dfmt <- dfm(toks)
+
+# get training set
+dfmat_training <- dfm_subset(dfmt, id_numeric %in% id_train)
+
+# get test set (documents not in id_train)
+dfmat_test <- dfm_subset(dfmt, !id_numeric %in% id_train)
+
+tmod_nb <- textmodel_nb(dfmat_training, dfmat_training$Final)
+summary(tmod_nb)
+
+dfmat_matched <- dfm_match(dfmat_test, 
+                           features = featnames(dfmat_training))
+
+actual_class <- dfmat_matched$Final
+predicted_class <- predict(tmod_nb, newdata = dfmat_matched)
+tab_class <- table(actual_class, predicted_class)
+tab_class
+
+CM <- confusionMatrix(tab_class, 
+                mode = "everything",
+                positive = '1')
+
+
+#Prediction on unlabeled data
+DF <- as.data.frame(predict(tmod_nb))
+```
+## Regularized Regression Classifier
+```{r RG}
+library(quanteda)
+library(quanteda.textmodels)
+library(caret)
+library(glmnet)
+
+# Classify Addiction
+#Addiction <- NicGum_Validation[which(NicGum_Validation$T#opic_Label=="Addiction"), ]
+#
+#Addiction$Final <- as.factor(Addiction$Final)
+
+# Classify Personal Experience
+#PersonalExperience <- #NicGum_Validation[which(NicGum_Validation$Topic_Label=="#Personal Experience"), ]
+#
+#PersonalExperience$Final <- #as.factor(PersonalExperience$Final)
+
+#Classify Sensory Experience
+SensoryExperience <- NicGum_Validation[which(NicGum_Validation$Topic_Label=="Sensory Experience"), ]
+
+SensoryExperience$Final <- as.factor(SensoryExperience$Final)
+
+
+#Create corpus
+corp <- corpus(Addiction, text_field = "text")
+print(corp)
+
+# generate 200 numbers without replacement
+set.seed(300)
+id_train <- sample(1:145, 
+                   20, 
+                   replace = FALSE)
+
+# create docvar with ID
+corp$id_numeric <- 1:ndoc(corp)
+
+# tokenize texts
+toks <-  tokens(corp, 
+              remove_punct = TRUE, 
+              remove_numbers = TRUE, 
+              remove_symbol = TRUE,
+              split_hyphens = TRUE) 
+dfmt <- dfm(toks)
+
+# get training set
+dfmat_training <- dfm_subset(dfmt, id_numeric %in% id_train)
+
+# get test set (documents not in id_train)
+dfmat_test <- dfm_subset(dfmt, !id_numeric %in% id_train)
+
+#LASSO
+lasso <- cv.glmnet(x = dfmat_training,
+y= as.integer(dfmat_training$Final == "1"),
+alpha = 1,
+nfold = 10,
+family = "binomial")
+
+index_best <- which(lasso$lambda == lasso$lambda.min)
+beta <- lasso$glmnet.fit$beta[, index_best]
+
+head(sort(beta, decreasing = TRUE), 15)
+
+dfmat_matched <- dfm_match(dfmat_test, features = featnames(dfmat_training))
+
+pred <- predict(lasso, 
+                dfmat_matched, 
+                type = "response", 
+                s = lasso$lambda.min)
+head(pred)
+
+
+actual_class <- as.integer(dfmat_matched$Final == "1")
+predicted_class <- as.integer(predict(lasso, dfmat_matched, type = "class"))
+tab_class <- table(actual_class, predicted_class)
+tab_class
+
+confusionMatrix(tab_class, 
+                      mode = "everything",
+                      positive = '1')
+```
+
+
+# Menthol Ban
+```{r Packages and import}
+library(readxl)
+library(udpipe)
+library(data.table)
+library(stopwords)
+library(BTM)
+library(textplot)
+library(ggraph)
+library(tidyverse)
+library(tidytext)
+library(concaveman)
+library(tidytext)
+library(schrute)
+library(syuzhet)
+
+
+Menthol_AprMay2022 <- read_excel("~/Desktop/Menthol_AprMay2022.xlsm")
+
+
+```
+```{r Syuzhet}
+SentimentScores <- get_sentiment(Menthol_AprMay2022$text)
+SentimentScores <- as.data.frame(SentimentScores)
+
+FINAL <- cbind(SentimentScores,
+               Menthol_AprMay2022)
+
+nrc_data <- get_nrc_sentiment(FINAL$text)
+
+table <- pander::pandoc.table(nrc_data[, 1:8], split.table = Inf)
+
+barplot(
+  sort(colSums(prop.table(nrc_data[, 1:8]))), 
+  horiz = TRUE, 
+  cex.names = 0.7, 
+  las = 1, 
+  main = "Emotions in Sample Tweets on Menthol Ban", xlab="Percentage"
+  )
+
+pander::pandoc.table(nrc_data[, 9:10])
+```
+```{r Interrater Reliability}
+library(readxl)
+library(irr)
+library(tidyverse)
+
+# Racial Discrimination
+RacialDiscrim <- read_excel("~/Desktop/Menthol_Coding.xlsm", 
+    sheet = "RacialDiscrim")
+
+
+RacialDiscrim <- RacialDiscrim %>% select(RacialDiscrim_CP,
+RacialDiscrim_MH)
+
+agree(RacialDiscrim)
+
+# Health Equity
+HealthEquity <- read_excel("~/Desktop/Menthol_Coding.xlsm", 
+    sheet = "HealthEquity")
+
+
+HealthEquity <- HealthEquity %>% select(HealthEquity_CP,
+HealthEquity_MH)
+
+agree(RacialDiscrim)
+
+# Misinformation
+Misinformation <- read_excel("~/Desktop/Menthol_Coding.xlsm", 
+    sheet = "Misinformation")
+
+
+Misinformation <- Misinformation %>% select(Misinformation_CP,
+Misinformation_MH)
+
+agree(Misinformation)
+
+# FreedomChoice
+FreedomChoice <- read_excel("~/Desktop/Menthol_Coding.xlsm", 
+    sheet = "FreedomChoice")
+
+
+FreedomChoice <- FreedomChoice %>% select(FreedomChoice_CP,
+FreedomChoice_MH)
+
+agree(FreedomChoice)
+
+# Inconsist
+Inconsist <- read_excel("~/Desktop/Menthol_Coding.xlsm", 
+    sheet = "Inconsist")
+
+
+Inconsist <- Inconsist %>% select(Inconsist_CP,
+Inconsist_MH)
+
+agree(Inconsist)
+
+# GovDistrust
+GovDistrust <- read_excel("~/Desktop/Menthol_Coding.xlsm", 
+    sheet = "GovDistrust")
+
+
+GovDistrust <- GovDistrust %>% select(GovDistrust_CP,
+GovDistrust_MH)
+
+agree(GovDistrust)
+
+# HealthBen
+HealthBen <- read_excel("~/Desktop/Menthol_Coding.xlsm", 
+    sheet = "HealthBen")
+
+
+HealthBen <- HealthBen %>% select(HealthBen_CP,
+HealthBen_MH)
+
+agree(HealthBen)
+
+# CessSupport
+CessSupport <- read_excel("~/Desktop/Menthol_Coding.xlsm", 
+    sheet = "CessSupport")
+
+
+CessSupport <- CessSupport %>% select(CessSupport_CP,
+CessSupport_MH)
+
+agree(CessSupport)
+
+# Illicit
+Illicit <- read_excel("~/Desktop/Menthol_Coding.xlsm", 
+    sheet = "Illicit")
+
+
+Illicit <- Illicit %>% select(Illicit_CP,
+Illicit_MH)
+
+agree(Illicit)
+
+# FDA
+FDA <- read_excel("~/Desktop/Menthol_Coding.xlsm", 
+    sheet = "FDA")
+
+
+FDA <- FDA %>% select(FDA_CP,
+FDA_MH)
+
+agree(FDA)
+
+
+```
+
+# Scoping Review
+```{r Packages and import data from Excel}
+library(readxl)
+library(ggplot2)
+library(tidyverse)
+library(hrbrthemes)
+library(dplyr)
+library(viridis)
+library(RColorBrewer)
+library(ggrepel)
+
+ScopingReview_FINAL <- read_excel("~/Desktop/USC/ScopingReview/DATA/ScopingReview_FINAL.xlsx")
+
+Bubble <- read_excel("~/Desktop/USC/ScopingReview/DATA/ScopingReview_FINAL.xlsx", 
+    sheet = "Bubble")
+
+Covidence_Final <- read_excel("~/Desktop/USC/ScopingReview/DATA/Covidence_Final.xlsx")
+
+
+```
+```{r Histogram year by publication}
+# plot
+plot <- Covidence_Final %>%
+ggplot(aes(x=`Published Year`)) +
+geom_histogram(binwidth=1,
+               fill="#010000", 
+               color="#010000", 
+               alpha=0.9) +
+ylim(0, 50) +
+theme_classic() +
+scale_x_continuous(breaks = seq(2007, 2022, by=1)) +
+labs(y = "Number of Studies",
+     x = "Year Published")
+
+plot
+
+
+```
+```{r Bubble Plot}
+# Small multiple
+ggplot(Bubble, 
+       aes(x=`Published Year`, 
+       y=n, 
+       size=n,
+       color=Platform)) +
+geom_point(alpha=1.0,
+           shape = 20) +
+scale_size(range = c(1,15), name = "N") +
+theme_bw()  +
+ylab("Number of studies") +
+xlab("Published year") +
+theme(legend.position="bottom") +
+scale_x_continuous(breaks=seq(2007, 2022, 1)) +
+scale_color_discrete(name="") +
+ylim(0, 25)
+
+
+
+```
+```{r Bubble Plot Edited}
+# Small multiple
+p <- ggplot(Bubble, 
+       aes(x=`Published Year`, 
+       y=n,
+       label = Initial)) +
+geom_point(alpha=1.0,
+           shape = 20) +
+scale_size(range = c(1,15), name = "N") +
+theme_bw()  +
+ylab("Number of studies") +
+xlab("Published year") +
+theme(legend.position="bottom") +
+scale_x_continuous(breaks=seq(2007, 2022, 1)) +
+scale_color_discrete(name="") +
+ylim(0, 25)
+
+p + geom_text_repel()
+
+```
+```{r Scatterplot Shapes}
+# Shape
+ggplot(Bubble, 
+       aes(x=`Published Year`,
+           y=n,
+           shape=Platform)) + 
+geom_point(size=6) +
+theme_bw() +
+scale_x_continuous(breaks=seq(2007, 2022, 1)) +
+ylab("Number of studies") +
+xlab("Published year") +
+theme(legend.position="bottom") +
+ylim(0, 25) +
+scale_shape_manual(values = c(0:6,10)) 
+
+
+```
+
+
+
+
+
+
+
+
+
+
+# YouGov Survey
+```{r Packages}
+library(haven)
+library(survey)
+library(dplyr)
+
+```
+```{r Import Data from SPSS}
+YouGov_DATA <- read_sav("~/Desktop/USC/TIME/YouGov/DATA/YouGov_DATA.sav")
+View(YouGov_DATA)
+```
+```{r Recode Variables}
+#Age
+YouGov_DATA$Age[YouGov_DATA$birthyr<2003] <- "21+"
+YouGov_DATA$Age[YouGov_DATA$birthyr>2002] <- "Under21"
+
+#Social media use
+YouGov_DATA$SM_Use[YouGov_DATA$social_media_use_grid_a==1|
+                   YouGov_DATA$social_media_use_grid_b==1|
+                   YouGov_DATA$social_media_use_grid_c==1|
+                   YouGov_DATA$social_media_use_grid_d==1|
+                   YouGov_DATA$social_media_use_grid_e==1|
+                   YouGov_DATA$social_media_use_grid_f==1|
+                   YouGov_DATA$social_media_use_grid_g==1|
+                   YouGov_DATA$social_media_use_grid_h==1|
+                   YouGov_DATA$social_media_use_grid_i==1|
+                   YouGov_DATA$social_media_use_grid_j==1|
+                   YouGov_DATA$social_media_use_grid_k==1] <- "Monthly"
+
+YouGov_DATA$SM_Use[YouGov_DATA$social_media_use_grid_a==2|
+                   YouGov_DATA$social_media_use_grid_b==2|
+                   YouGov_DATA$social_media_use_grid_c==2|
+                   YouGov_DATA$social_media_use_grid_d==2|
+                   YouGov_DATA$social_media_use_grid_e==2|
+                   YouGov_DATA$social_media_use_grid_f==2|
+                   YouGov_DATA$social_media_use_grid_g==2|
+                   YouGov_DATA$social_media_use_grid_h==2|
+                   YouGov_DATA$social_media_use_grid_i==2|
+                   YouGov_DATA$social_media_use_grid_j==2|
+                   YouGov_DATA$social_media_use_grid_k==2] <- "Weekly"
+
+YouGov_DATA$SM_Use[YouGov_DATA$social_media_use_grid_a==3|
+                   YouGov_DATA$social_media_use_grid_b==3|
+                   YouGov_DATA$social_media_use_grid_c==3|
+                   YouGov_DATA$social_media_use_grid_d==3|
+                   YouGov_DATA$social_media_use_grid_e==3|
+                   YouGov_DATA$social_media_use_grid_f==3|
+                   YouGov_DATA$social_media_use_grid_g==3|
+                   YouGov_DATA$social_media_use_grid_h==3|
+                   YouGov_DATA$social_media_use_grid_i==3|
+                   YouGov_DATA$social_media_use_grid_j==3|
+                   YouGov_DATA$social_media_use_grid_k==3] <- "Once Daily"
+
+YouGov_DATA$SM_Use[YouGov_DATA$social_media_use_grid_a==4|
+                   YouGov_DATA$social_media_use_grid_b==4|
+                   YouGov_DATA$social_media_use_grid_c==4|
+                   YouGov_DATA$social_media_use_grid_d==4|
+                   YouGov_DATA$social_media_use_grid_e==4|
+                   YouGov_DATA$social_media_use_grid_f==4|
+                   YouGov_DATA$social_media_use_grid_g==4|
+                   YouGov_DATA$social_media_use_grid_h==4|
+                   YouGov_DATA$social_media_use_grid_i==4|
+                   YouGov_DATA$social_media_use_grid_j==4|
+                   YouGov_DATA$social_media_use_grid_k==4] <- "Several times a day"
+
+YouGov_DATA$SM_Use[YouGov_DATA$social_media_use_grid_a==5|
+                   YouGov_DATA$social_media_use_grid_b==5|
+                   YouGov_DATA$social_media_use_grid_c==5|
+                   YouGov_DATA$social_media_use_grid_d==5|
+                   YouGov_DATA$social_media_use_grid_e==5|
+                   YouGov_DATA$social_media_use_grid_f==5|
+                   YouGov_DATA$social_media_use_grid_g==5|
+                   YouGov_DATA$social_media_use_grid_h==5|
+                   YouGov_DATA$social_media_use_grid_i==5|
+                   YouGov_DATA$social_media_use_grid_j==5|
+                   YouGov_DATA$social_media_use_grid_k==5] <- "Less than once a month"
+
+YouGov_DATA$SM_Use[YouGov_DATA$social_media_use_grid_a==9|
+                   YouGov_DATA$social_media_use_grid_b==9|
+                   YouGov_DATA$social_media_use_grid_c==9|
+                   YouGov_DATA$social_media_use_grid_d==9|
+                   YouGov_DATA$social_media_use_grid_e==9|
+                   YouGov_DATA$social_media_use_grid_f==9|
+                   YouGov_DATA$social_media_use_grid_g==9|
+                   YouGov_DATA$social_media_use_grid_h==9|
+                   YouGov_DATA$social_media_use_grid_i==9|
+                   YouGov_DATA$social_media_use_grid_j==9|
+                   YouGov_DATA$social_media_use_grid_k==9] <- "Not asked"
+
+YouGov_DATA$SM_Use[is.na(YouGov_DATA$SM_Use)] <- "None"
+
+#Scripted Entertainment - Film Recall
+YouGov_DATA$Film_recall_overall <- ifelse(YouGov_DATA$film_tv_recall_1==1 |
+       YouGov_DATA$film_tv_recall_2==1 |
+       YouGov_DATA$film_tv_recall_3==1 |
+       YouGov_DATA$film_tv_recall_4==1 |
+       YouGov_DATA$film_tv_recall_5==1 |
+       YouGov_DATA$film_tv_recall_6==1 |
+       YouGov_DATA$film_tv_recall_7==1 |
+       YouGov_DATA$film_tv_recall_8==1 |
+       YouGov_DATA$film_tv_recall_9==1,
+c("Yes"), c("No"))
+
+#Scripted Entertainment - Exposure
+YouGov_DATA$Film_ecig_exposure[YouGov_DATA$exposure_grid_a==1 |
+       YouGov_DATA$exposure_grid_b==1 |
+       YouGov_DATA$exposure_grid_c==1 |
+       YouGov_DATA$exposure_grid_d==1 |
+       YouGov_DATA$exposure_grid_e==1 |
+       YouGov_DATA$exposure_grid_f==1 |
+       YouGov_DATA$exposure_grid_g==1 |
+       YouGov_DATA$exposure_grid_h==1 |
+       YouGov_DATA$exposure_grid_i==1] <- "1"
+
+YouGov_DATA$Film_ecig_exposure[is.na(YouGov_DATA$Film_ecig_exposure)] <- "0"
+
+#Email stimuli - contest
+YouGov_DATA$Email_contest_exposure <- 
+ifelse(YouGov_DATA$promotion_email1==2 |
+       YouGov_DATA$promotion_email1==3,
+c("Yes"), c("No"))
+
+#Email stimuli - coupon
+YouGov_DATA$Email_coupon_exposure <- 
+ifelse(YouGov_DATA$promotion_email2==2 |
+       YouGov_DATA$promotion_email2==3,
+c("Yes"), c("No"))
+
+#Email stimuli - flavor
+YouGov_DATA$Email_flavor_exposure <- 
+ifelse(YouGov_DATA$promotion_email3==2 |
+       YouGov_DATA$promotion_email3==3,
+c("Yes"), c("No"))
+
+#Email stimuli - design
+YouGov_DATA$Email_design_exposure <- 
+ifelse(YouGov_DATA$promotion_email4==2 |
+       YouGov_DATA$promotion_email4==3,
+c("Yes"), c("No"))
+
+#Email stimuli - overall
+YouGov_DATA$Email_stimuli_exposure <- 
+ifelse(YouGov_DATA$Email_contest_exposure=="Yes" |
+       YouGov_DATA$Email_coupon_exposure=="Yes" |
+       YouGov_DATA$Email_flavor_exposure=="Yes" |
+       YouGov_DATA$Email_design_exposure=="Yes",
+c("Yes"), c("No"))
+
+#Insta stimuli - contest
+YouGov_DATA$Insta_contest_exposure <- 
+ifelse(YouGov_DATA$promotion_insta1==2 |
+       YouGov_DATA$promotion_insta1==3,
+c("Yes"), c("No"))
+
+#Insta stimuli - coupon
+YouGov_DATA$Insta_coupon_exposure <- 
+ifelse(YouGov_DATA$promotion_insta2==2 |
+       YouGov_DATA$promotion_insta2==3,
+c("Yes"), c("No"))
+
+#Insta stimuli - flavor
+YouGov_DATA$Insta_flavor_exposure <- 
+ifelse(YouGov_DATA$promotion_insta3==2 |
+       YouGov_DATA$promotion_insta3==3,
+c("Yes"), c("No"))
+
+#Insta stimuli - design
+YouGov_DATA$Insta_design_exposure <- 
+ifelse(YouGov_DATA$promotion_insta4==2 |
+       YouGov_DATA$promotion_insta4==3,
+c("Yes"), c("No"))
+
+#Insta stimuli - overall
+YouGov_DATA$Insta_stimuli_exposure <- 
+ifelse(YouGov_DATA$Insta_contest_exposure=="Yes" |
+       YouGov_DATA$Insta_coupon_exposure=="Yes" |
+       YouGov_DATA$Insta_flavor_exposure=="Yes" |
+       YouGov_DATA$Insta_design_exposure=="Yes",
+c("Yes"), c("No"))
+
+#Tiktok stimuli - coupon
+YouGov_DATA$Tik_coupon_exposure <- 
+ifelse(YouGov_DATA$promotion_tik2==2 |
+       YouGov_DATA$promotion_tik2==3,
+c("Yes"), c("No"))
+
+#Tiktok stimuli - flavor
+YouGov_DATA$Tik_flavor_exposure <- 
+ifelse(YouGov_DATA$promotion_tik3==2 |
+       YouGov_DATA$promotion_tik3==3,
+c("Yes"), c("No"))
+
+#Tiktok stimuli - design
+YouGov_DATA$Tik_design_exposure <- 
+ifelse(YouGov_DATA$promotion_tik4==2 |
+       YouGov_DATA$promotion_tik4==3,
+c("Yes"), c("No"))
+
+#Tiktok stimuli - overall
+YouGov_DATA$Tik_stimuli_exposure <- 
+ifelse(YouGov_DATA$Tik_coupon_exposure=="Yes" |
+       YouGov_DATA$Tik_flavor_exposure=="Yes" |
+       YouGov_DATA$Tik_design_exposure=="Yes",
+c("Yes"), c("No"))
+
+#YouTube stimuli - instructional
+YouGov_DATA$YouTube_instructional_exposure <- 
+ifelse(YouGov_DATA$promotion_you2==2 |
+       YouGov_DATA$promotion_you2==3,
+c("Yes"), c("No"))
+
+#YouTube stimuli - flavor
+YouGov_DATA$YouTube_flavor_exposure <- 
+ifelse(YouGov_DATA$promotion_you3==2 |
+       YouGov_DATA$promotion_you3==3,
+c("Yes"), c("No"))
+
+#YouTube stimuli - design
+YouGov_DATA$YouTube_design_exposure <- 
+ifelse(YouGov_DATA$promotion_you4==2 |
+       YouGov_DATA$promotion_you4==3,
+c("Yes"), c("No"))
+
+#YouTube stimuli - overall
+YouGov_DATA$YouTube_stimuli_exposure <- 
+ifelse(YouGov_DATA$YouTube_instructional_exposure=="Yes" |
+       YouGov_DATA$YouTube_flavor_exposure=="Yes" |
+       YouGov_DATA$YouTube_design_exposure=="Yes",
+c("Yes"), c("No"))
+
+#Julia Experiment
+YouGov_DATA$t1_vid[is.na(YouGov_DATA$t1_vid)] <- "0"
+YouGov_DATA$t2_vid[is.na(YouGov_DATA$t2_vid)] <- "0"
+YouGov_DATA$t3_vid[is.na(YouGov_DATA$t3_vid)] <- "0"
+YouGov_DATA$t4_vid[is.na(YouGov_DATA$t4_vid)] <- "0"
+YouGov_DATA$t5_vid[is.na(YouGov_DATA$t5_vid)] <- "0"
+YouGov_DATA$t6_vid[is.na(YouGov_DATA$t6_vid)] <- "0"
+YouGov_DATA$t7_vid[is.na(YouGov_DATA$t7_vid)] <- "0"
+YouGov_DATA$t8_vid[is.na(YouGov_DATA$t8_vid)] <- "0"
+YouGov_DATA$t9_vid[is.na(YouGov_DATA$t9_vid)] <- "0"
+YouGov_DATA$t10_vid[is.na(YouGov_DATA$t10_vid)] <- "0"
+
+YouGov_DATA$Julia_Treatment[YouGov_DATA$t1_vid==1 &
+       YouGov_DATA$t2_vid==1 &
+       YouGov_DATA$t3_vid==1 &
+       YouGov_DATA$t4_vid==1 &
+       YouGov_DATA$t5_vid==1 &
+       YouGov_DATA$t6_vid==1 &
+       YouGov_DATA$t7_vid==1 &
+       YouGov_DATA$t8_vid==1 &
+       YouGov_DATA$t9_vid==1 &
+       YouGov_DATA$t10_vid==1] <- "Treatment"
+
+YouGov_DATA$Julia_Control[YouGov_DATA$c1_vid==1 &
+       YouGov_DATA$c2_vid==1 &
+       YouGov_DATA$c3_vid==1 &
+       YouGov_DATA$c4_vid==1 &
+       YouGov_DATA$c5_vid==1 &
+       YouGov_DATA$c6_vid==1 &
+       YouGov_DATA$c7_vid==1 &
+       YouGov_DATA$c8_vid==1 &
+       YouGov_DATA$c9_vid==1 &
+       YouGov_DATA$c10_vid==1] <- "Control"
+YouGov_DATA$Julia_Condition_FINAL <- paste(YouGov_DATA$Julia_Treatment,
+                                           YouGov_DATA$Julia_Control)
+
+YouGov_DATA$Julia_Condition_FINAL[YouGov_DATA$Julia_Condition_FINAL=="NA Control"] <- "Control"
+YouGov_DATA$Julia_Condition_FINAL[YouGov_DATA$Julia_Condition_FINAL=="NA NA"] <- "Error"
+YouGov_DATA$Julia_Condition_FINAL[YouGov_DATA$Julia_Condition_FINAL=="Treatment NA"] <- "Treatment"
+
+YouGov_DATA$Julia_Condition_FINAL <- as.factor(YouGov_DATA$Julia_Condition_FINAL)
+
+#Perceived harms
+YouGov_DATA$Harms_recoded[YouGov_DATA$c_q2==1 |
+                          YouGov_DATA$c_q2==2] <- "0"
+
+YouGov_DATA$Harms_recoded[YouGov_DATA$c_q2==3 |
+                          YouGov_DATA$c_q2==4] <- "1"
+YouGov_DATA$Harms_recoded <- as.numeric(YouGov_DATA$Harms_recoded)
+
+#Perceived benefits
+YouGov_DATA$Benefits_recoded[YouGov_DATA$c_q3==1] <- "0"
+
+YouGov_DATA$Benefits_recoded[YouGov_DATA$c_q3==2 |
+                          YouGov_DATA$c_q3==3 |
+                          YouGov_DATA$c_q3==4] <- "1"
+YouGov_DATA$Benefits_recoded <- as.numeric(YouGov_DATA$Benefits_recoded)
+
+##Susceptibility to Use
+#Friend
+YouGov_DATA$Sus_Friend[YouGov_DATA$c_q4==1] <- "0"
+
+YouGov_DATA$Sus_Friend[YouGov_DATA$c_q4==2 |
+                       YouGov_DATA$c_q4==3 |
+                       YouGov_DATA$c_q4==4] <- "1"
+
+#Try
+YouGov_DATA$Sus_Try[YouGov_DATA$c_q5==1] <- "0"
+
+YouGov_DATA$Sus_Try[YouGov_DATA$c_q5==2 |
+                       YouGov_DATA$c_q5==3 |
+                       YouGov_DATA$c_q5==4] <- "1"
+
+#Curious
+YouGov_DATA$Sus_Curious[YouGov_DATA$c_q6==1] <- "0"
+
+YouGov_DATA$Sus_Curious[YouGov_DATA$c_q6==2 |
+                       YouGov_DATA$c_q6==3 |
+                       YouGov_DATA$c_q6==4] <- "1"
+
+#Overall Sus Measure
+YouGov_DATA$Sus_TOTAL <- YouGov_DATA$c_q4 +
+                         YouGov_DATA$c_q5 +
+                         YouGov_DATA$c_q6
+
+YouGov_DATA$Sus_Di[Sus_TOTAL==3] <- "0"
+
+YouGov_DATA$Sus_Di[Sus_TOTAL>3] <- "1"
+
+YouGov_DATA$Sus_Di <- as.factor(YouGov_DATA$Sus_Di)
+
+#Vape Appeal
+YouGov_DATA$Vape_Appeal[YouGov_DATA$vape_appeal_look==1] <- "0"
+
+YouGov_DATA$Vape_Appeal[YouGov_DATA$vape_appeal_look==2 |
+                       YouGov_DATA$vape_appeal_look==3 |
+                       YouGov_DATA$vape_appeal_look==4] <- "1"
+
+YouGov_DATA$Vape_Appeal <- as.numeric(YouGov_DATA$Vape_Appeal)
+
+#Purchase Intentions
+YouGov_DATA$Vape_Buy[YouGov_DATA$vape_appeal_buy==1] <- "0"
+
+YouGov_DATA$Vape_Buy[YouGov_DATA$vape_appeal_buy==2 |
+                     YouGov_DATA$vape_appeal_buy==3 |
+                     YouGov_DATA$vape_appeal_buy==4] <- "1"
+
+YouGov_DATA$Vape_Buy <- as.numeric(YouGov_DATA$Vape_Buy)
+
+#Current E-cigarette marketing exposures
+YouGov_DATA$source_30 <- as.numeric(YouGov_DATA$source_30)
+YouGov_DATA$direct_exposure_email_30 <- as.numeric(YouGov_DATA$direct_exposure_email_30)
+YouGov_DATA$direct_exposure_website_30 <- as.numeric(YouGov_DATA$direct_exposure_website_30)
+YouGov_DATA$Film_ecig_exposure <- as.numeric(YouGov_DATA$Film_ecig_exposure)
+
+YouGov_DATA$Current_ecig_marketing_exposure[YouGov_DATA$source_30=="1" |
+YouGov_DATA$direct_exposure_email_30=="1" |
+YouGov_DATA$direct_exposure_website_30=="1" |
+YouGov_DATA$Film_ecig_exposure=="1"]<- "Yes"
+
+YouGov_DATA$Current_ecig_marketing_exposure[is.na(YouGov_DATA$Current_ecig_marketing_exposure)] <- "No"
+
+#Lifetime E-cigarette marketing exposures
+YouGov_DATA$source <- as.numeric(YouGov_DATA$source)
+YouGov_DATA$direct_exposure_email <- as.numeric(YouGov_DATA$direct_exposure_email)
+YouGov_DATA$direct_exposure_website <- as.numeric(YouGov_DATA$direct_exposure_website)
+YouGov_DATA$Film_ecig_exposure <- as.numeric(YouGov_DATA$Film_ecig_exposure)
+
+YouGov_DATA$Lifetime_ecig_marketing_exposure[YouGov_DATA$source=="1" |
+YouGov_DATA$direct_exposure_email=="1" |
+YouGov_DATA$direct_exposure_website=="1" |
+YouGov_DATA$Film_ecig_exposure=="1"]<- "Yes"
+
+YouGov_DATA$Lifetime_ecig_marketing_exposure[is.na(YouGov_DATA$Lifetime_ecig_marketing_exposure)] <- "No"
+
+#Overall E-cigarette recognition to stimuli
+YouGov_DATA$Ecig_stimuli_recognition[
+YouGov_DATA$Insta_stimuli_exposure=="Yes" |
+YouGov_DATA$Email_stimuli_exposure=="Yes" |
+YouGov_DATA$YouTube_stimuli_exposure=="Yes" |
+YouGov_DATA$Tik_stimuli_exposure=="Yes"]<- "Yes"
+
+YouGov_DATA$Ecig_stimuli_recognition[is.na(YouGov_DATA$Ecig_stimuli_recognition)] <- "No"
+
+#Current Substance Use
+YouGov_DATA$alcohol_use_30 <- as.numeric(YouGov_DATA$alcohol_use_30)
+YouGov_DATA$cigarette_use_30 <- as.numeric(YouGov_DATA$cigarette_use_30)
+YouGov_DATA$marijuana_use_30 <- as.numeric(YouGov_DATA$marijuana_use_30)
+YouGov_DATA$vape_use_30 <- as.numeric(YouGov_DATA$vape_use_30)
+
+YouGov_DATA$Current_Substance_Use[
+YouGov_DATA$alcohol_use_30=="1" |
+YouGov_DATA$cigarette_use_30=="1" |
+YouGov_DATA$marijuana_use_30=="1" |
+YouGov_DATA$vape_use_30=="1"]<- "Yes"
+
+YouGov_DATA$Current_Substance_Use[is.na(YouGov_DATA$Current_Substance_Use)] <- "No"
+
+#Lifetime Substance Use
+YouGov_DATA$alcohol_use <- as.numeric(YouGov_DATA$alcohol_use)
+YouGov_DATA$cigarette_use <- as.numeric(YouGov_DATA$cigarette_use)
+YouGov_DATA$marijuana_use <- as.numeric(YouGov_DATA$marijuana_use)
+YouGov_DATA$vape_use <- as.numeric(YouGov_DATA$vape_use)
+
+YouGov_DATA$Lifetime_Substance_Use[
+YouGov_DATA$alcohol_use=="1" |
+YouGov_DATA$cigarette_use=="1" |
+YouGov_DATA$marijuana_use=="1" |
+YouGov_DATA$vape_use=="1"]<- "Yes"
+
+YouGov_DATA$Lifetime_Substance_Use[is.na(YouGov_DATA$Lifetime_Substance_Use)] <- "No"
+
+#Offline Marketing Exposure
+YouGov_DATA$Offline_ecig_marketing[
+       YouGov_DATA$tobacco_mult_2==1 |
+       YouGov_DATA$tobacco_mult_3==1 |
+       YouGov_DATA$tobacco_mult_4==1 |
+       YouGov_DATA$tobacco_mult_5==1 |
+       YouGov_DATA$tobacco_mult_6==1]<- "Yes"
+
+YouGov_DATA$Offline_ecig_marketing[is.na(YouGov_DATA$Offline_ecig_marketing)] <- "No"
+
+#SM Use Recode
+YouGov_DATA$SM_DailyUse[
+       YouGov_DATA$SM_Use=="Less than once a month" |
+       YouGov_DATA$SM_Use=="Monthly" |
+       YouGov_DATA$SM_Use=="None" |
+       YouGov_DATA$SM_Use=="Weekly"]<- "No"
+
+YouGov_DATA$SM_DailyUse[is.na(YouGov_DATA$SM_DailyUse)] <- "Yes"
+
+#Current vape use
+YouGov_DATA$Current_vape_use[
+       YouGov_DATA$vape_use_30==1]<- "1"
+
+YouGov_DATA$Current_vape_use[
+       YouGov_DATA$vape_use_30==2]<- "0"
+YouGov_DATA$Current_vape_use <- as.numeric(YouGov_DATA$Current_vape_use)
+
+#Lifetime vape use
+YouGov_DATA$Lifetime_vape_use[
+       YouGov_DATA$vape_use==1]<- "1"
+
+YouGov_DATA$Lifetime_vape_use[
+       YouGov_DATA$vape_use==2]<- "0"
+YouGov_DATA$Lifetime_vape_use <- as.numeric(YouGov_DATA$Lifetime_vape_use)
+
+
+#Current Exposures for dose response
+YouGov_DATA$source_30[
+       YouGov_DATA$source_30==2]<- "0"
+YouGov_DATA$direct_exposure_email_30[
+       YouGov_DATA$direct_exposure_email_30==2]<- "0"
+YouGov_DATA$direct_exposure_website_30[
+       YouGov_DATA$direct_exposure_website_30==2]<- "0"
+
+#Current ECig Marketing Exposure Total
+YouGov_DATA$source_30 <- as.numeric(YouGov_DATA$source_30)
+
+YouGov_DATA$direct_exposure_email_30 <- as.numeric(YouGov_DATA$direct_exposure_email_30)
+
+YouGov_DATA$direct_exposure_website_30 <- as.numeric(YouGov_DATA$direct_exposure_website_30)
+
+YouGov_DATA$Film_ecig_exposure <- as.numeric(YouGov_DATA$Film_ecig_exposure)
+
+YouGov_DATA$Current_ecig_marketing_exposure_TOTAL <- rowSums(YouGov_DATA[ ,c(87,89,110)],
+na.rm = TRUE)
+
+#Lifetime ECig Marketing Exposure Total
+#Current Exposures for dose response
+YouGov_DATA$source[
+       YouGov_DATA$source==2]<- "0"
+YouGov_DATA$direct_exposure_email[
+       YouGov_DATA$direct_exposure_email==2]<- "0"
+YouGov_DATA$direct_exposure_website[
+       YouGov_DATA$direct_exposure_website==2]<- "0"
+YouGov_DATA$source <- as.numeric(YouGov_DATA$source)
+YouGov_DATA$direct_exposure_email <- as.numeric(YouGov_DATA$direct_exposure_email)
+YouGov_DATA$direct_exposure_website <- as.numeric(YouGov_DATA$direct_exposure_website)
+YouGov_DATA$Film_ecig_exposure <- as.numeric(YouGov_DATA$Film_ecig_exposure)
+
+YouGov_DATA$Lifetime_ecig_marketing_exposure_TOTAL <- rowSums(YouGov_DATA[ ,c(85,86,109,379)],
+na.rm = TRUE)
+
+```
+```{r Create Survey Weight Object}
+#Create weighted object
+my_design <-svydesign(id=caseid, 
+                      weights=weight, 
+                      data=YouGov_DATA)
+```
+```{r Sample Characteristics Raw, Weighted}
+#Gender identity - raw
+freqdist::freqdist(YouGov_DATA$gender_identity)
+#Gender identity - weighted
+svytable(~YouGov_DATA$gender_identity,
+         design=my_design)
+
+#Age - raw
+freqdist::freqdist(YouGov_DATA$Age)
+#Age - weighted
+svytable(~YouGov_DATA$Age,
+         design=my_design)
+
+#Education - raw
+freqdist::freqdist(YouGov_DATA$educ)
+#Education - weighted
+svytable(~YouGov_DATA$educ,
+         design=my_design)
+
+#Race - raw
+freqdist::freqdist(YouGov_DATA$race)
+#Race - weighted
+svytable(~YouGov_DATA$race,
+         design=my_design)
+
+#Current substance use - raw
+freqdist::freqdist(YouGov_DATA$Current_Substance_Use)
+#Current substance use - weighted
+svytable(~YouGov_DATA$Current_Substance_Use,
+         design=my_design)
+
+#Ecig online exposure - raw
+freqdist::freqdist(YouGov_DATA$Current_ecig_marketing_exposure)
+#Ecig online exposure - weighted
+svytable(~YouGov_DATA$Current_ecig_marketing_exposure,
+         design=my_design)
+
+#Ecig offline exposure - raw
+freqdist::freqdist(YouGov_DATA$Offline_ecig_marketing)
+#Ecig offline exposure - weighted
+svytable(~YouGov_DATA$Offline_ecig_marketing,
+         design=my_design)
+
+```
+```{r Prevalence of Exposures}
+#Social media marketing
+freqdist::freqdist(YouGov_DATA$source)
+freqdist::freqdist(YouGov_DATA$source_30)
+
+#Direct Marketing Exposure - Email
+freqdist::freqdist(YouGov_DATA$direct_exposure_email)
+freqdist::freqdist(YouGov_DATA$direct_exposure_email_30)
+freqdist::freqdist(YouGov_DATA$direct_exposure_newsletter_30)
+
+#Direct Marketing Exposure - Websites
+freqdist::freqdist(YouGov_DATA$direct_exposure_website)
+freqdist::freqdist(YouGov_DATA$direct_exposure_website_30)
+
+#Scripted Entertainment
+freqdist::freqdist(YouGov_DATA$Film_recall_overall)
+freqdist::freqdist(YouGov_DATA$Film_ecig_exposure)
+
+#Recognition Instagram
+freqdist::freqdist(YouGov_DATA$Insta_contest_exposure)
+freqdist::freqdist(YouGov_DATA$Insta_coupon_exposure)
+freqdist::freqdist(YouGov_DATA$Insta_flavor_exposure)
+freqdist::freqdist(YouGov_DATA$Insta_design_exposure)
+freqdist::freqdist(YouGov_DATA$Insta_stimuli_exposure)
+
+#Recognition Email
+freqdist::freqdist(YouGov_DATA$Email_contest_exposure)
+freqdist::freqdist(YouGov_DATA$Email_coupon_exposure)
+freqdist::freqdist(YouGov_DATA$Email_flavor_exposure)
+freqdist::freqdist(YouGov_DATA$Email_design_exposure)
+freqdist::freqdist(YouGov_DATA$Email_stimuli_exposure)
+
+#Recognition YouTube
+freqdist::freqdist(YouGov_DATA$YouTube_instructional_exposure)
+freqdist::freqdist(YouGov_DATA$YouTube_flavor_exposure)
+freqdist::freqdist(YouGov_DATA$YouTube_design_exposure)
+freqdist::freqdist(YouGov_DATA$YouTube_stimuli_exposure)
+
+#Recognition TikTok
+freqdist::freqdist(YouGov_DATA$Tik_coupon_exposure)
+freqdist::freqdist(YouGov_DATA$Tik_flavor_exposure)
+freqdist::freqdist(YouGov_DATA$Tik_design_exposure)
+freqdist::freqdist(YouGov_DATA$Tik_stimuli_exposure)
+
+mytable <- table(YouGov_DATA$Current_ecig_marketing_exposure,
+                YouGov_DATA$Sus_Di) # A will be rows, B will be columns
+mytable # print table
+chisq.test(mytable)
+
+```
+```{r Perceived Benefits - Lifetime}
+#Lifetime
+##Social Media
+fit.glm.ben <-svyglm(Benefits_recoded ~ source +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+##Email
+fit.glm.ben <-svyglm(Benefits_recoded ~ direct_exposure_email +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+##Websites
+fit.glm.ben <-svyglm(Benefits_recoded ~ direct_exposure_website +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+##Scripted
+fit.glm.ben <-svyglm(Benefits_recoded ~ Film_ecig_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+##Overall
+fit.glm.ben <-svyglm(Benefits_recoded ~ Lifetime_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+
+
+```
+```{r Perceived Benefits - Current}
+#Current
+##Social Media
+fit.glm.ben <-svyglm(Benefits_recoded ~ source_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+##Email
+fit.glm.ben <-svyglm(Benefits_recoded ~ direct_exposure_email_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+##Websites
+fit.glm.ben <-svyglm(Benefits_recoded ~ direct_exposure_website_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+##Overall
+fit.glm.ben <-svyglm(Benefits_recoded ~ Current_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+
+
+```
+```{r Appeal - Lifetime}
+#Lifetime
+##Social Media
+fit.glm.appeal <-svyglm(Vape_Appeal ~ source +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Email
+fit.glm.appeal <-svyglm(Vape_Appeal ~ direct_exposure_email +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Websites
+fit.glm.appeal <-svyglm(Vape_Appeal ~ direct_exposure_website +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Scripted
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Film_ecig_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Overall
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Lifetime_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+
+
+```
+```{r Appeal - Current}
+#Lifetime
+##Social Media
+fit.glm.appeal <-svyglm(Vape_Appeal ~ source_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Email
+fit.glm.appeal <-svyglm(Vape_Appeal ~ direct_exposure_email_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Websites
+fit.glm.appeal <-svyglm(Vape_Appeal ~ direct_exposure_website_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Overall
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Current_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+
+
+```
+```{r Buy - Lifetime}
+#Lifetime
+##Social Media
+fit.glm.buy <-svyglm(Vape_Buy ~ source +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+##Email
+fit.glm.buy <-svyglm(Vape_Buy ~ direct_exposure_email +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+##Websites
+fit.glm.buy <-svyglm(Vape_Buy ~ direct_exposure_website +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+##Scripted
+fit.glm.buy <-svyglm(Vape_Buy ~ Film_ecig_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+##Overall
+fit.glm.buy <-svyglm(Vape_Buy ~ Lifetime_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+
+
+```
+```{r Buy - Current}
+#Lifetime
+##Social Media
+fit.glm.buy <-svyglm(Vape_Buy ~ source_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+##Email
+fit.glm.buy <-svyglm(Vape_Buy ~ direct_exposure_email_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+##Websites
+fit.glm.buy <-svyglm(Vape_Buy ~ direct_exposure_website_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+##Overall
+fit.glm.buy <-svyglm(Vape_Buy ~ Current_ecig_marketing_exposure +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+
+
+```
+```{r Susceptibility - Lifetime}
+#Lifetime
+##Social Media
+fit.glm.di <-svyglm(Sus_Di ~ source +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+##Email
+fit.glm.di <-svyglm(Sus_Di ~ direct_exposure_email +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+##Websites
+fit.glm.di <-svyglm(Sus_Di ~ direct_exposure_website +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+##Scripted
+fit.glm.di <-svyglm(Sus_Di ~ Film_ecig_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+##Overall
+fit.glm.di <-svyglm(Sus_Di ~ Lifetime_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+
+
+```
+```{r Susceptibility - Current}
+#Lifetime
+##Social Media
+fit.glm.di <-svyglm(Sus_Di ~ source_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+##Email
+fit.glm.di <-svyglm(Sus_Di ~ direct_exposure_email_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+##Websites
+fit.glm.di <-svyglm(Sus_Di ~ direct_exposure_website_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+##Overall
+fit.glm.di <-svyglm(Sus_Di ~ Current_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+
+
+```
+```{r Lifetime E-Cig Use - Lifetime}
+#Lifetime
+##Social Media
+fit.glm.lifeuse <-svyglm(Lifetime_vape_use ~ source +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.lifeuse)
+exp(cbind(OR = coef(fit.glm.lifeuse), confint(fit.glm.lifeuse)))
+
+##Email
+fit.glm.lifeuse <-svyglm(Lifetime_vape_use ~ direct_exposure_email +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.lifeuse)
+exp(cbind(OR = coef(fit.glm.lifeuse), confint(fit.glm.lifeuse)))
+
+##Websites
+fit.glm.lifeuse <-svyglm(Lifetime_vape_use ~ direct_exposure_website +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.lifeuse)
+exp(cbind(OR = coef(fit.glm.lifeuse), confint(fit.glm.lifeuse)))
+
+##Scripted
+fit.glm.lifeuse <-svyglm(Lifetime_vape_use ~ Film_ecig_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.lifeuse)
+exp(cbind(OR = coef(fit.glm.lifeuse), confint(fit.glm.lifeuse)))
+
+##Overall
+fit.glm.lifeuse <-svyglm(Lifetime_vape_use ~ Lifetime_ecig_marketing_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.lifeuse)
+exp(cbind(OR = coef(fit.glm.lifeuse), confint(fit.glm.lifeuse)))
+
+
+
+```
+```{r Current E-Cig Use - Current}
+#Lifetime
+##Social Media
+fit.glm.use <-svyglm(Current_vape_use ~ source +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+##Email
+fit.glm.use <-svyglm(Current_vape_use ~ direct_exposure_email +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+##Websites
+fit.glm.use <-svyglm(Current_vape_use ~ direct_exposure_website +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+##Scripted
+fit.glm.use <-svyglm(Current_vape_use ~ Film_ecig_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+##Overall
+fit.glm.use <-svyglm(Current_vape_use ~ Current_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+
+```
+```{r Dose Response Relationships}
+##Overall
+fit.glm.use <-svyglm(Current_vape_use ~ Current_ecig_marketing_exposure_TOTAL  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+##Lifetime
+fit.glm.use <-svyglm(Lifetime_vape_use ~ Lifetime_ecig_marketing_exposure_TOTAL  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+```
+```{r Age Interactions}
+
+```
+
+
+
+
+
+
+
+
+
+
