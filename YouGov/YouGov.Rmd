@@ -1,0 +1,4459 @@
+---
+title: "YouGov Report"
+author: "Scott I. Donaldson, PhD"
+date: "09/11/2023"
+editor_options: 
+  chunk_output_type: console
+---
+
+#Packages and Data Import
+```{r Packages}
+library(haven)
+library(survey)
+library(dplyr)
+
+```
+```{r Import Data from SPSS}
+YouGov_DATA <- read_sav("~/Desktop/USC/TIME/YouGov/DATA/YouGov_DATA.sav")
+
+attach(YouGov_DATA)
+```
+#Recoding Variables
+```{r Demographics recode}
+#Age
+YouGov_DATA$Age[YouGov_DATA$birthyr<2003] <- "21+"
+YouGov_DATA$Age[YouGov_DATA$birthyr>2002] <- "Under21"
+YouGov_DATA$Age_new[YouGov_DATA$Age=="Under21"] <- "1"
+YouGov_DATA$Age_new[YouGov_DATA$Age=="21+"] <- "0"
+
+
+#Social media use
+YouGov_DATA$SM_Use[YouGov_DATA$social_media_use_grid_a==1|
+                   YouGov_DATA$social_media_use_grid_b==1|
+                   YouGov_DATA$social_media_use_grid_c==1|
+                   YouGov_DATA$social_media_use_grid_d==1|
+                   YouGov_DATA$social_media_use_grid_e==1|
+                   YouGov_DATA$social_media_use_grid_f==1|
+                   YouGov_DATA$social_media_use_grid_g==1|
+                   YouGov_DATA$social_media_use_grid_h==1|
+                   YouGov_DATA$social_media_use_grid_i==1|
+                   YouGov_DATA$social_media_use_grid_j==1|
+                   YouGov_DATA$social_media_use_grid_k==1] <- "Monthly"
+
+YouGov_DATA$SM_Use[YouGov_DATA$social_media_use_grid_a==2|
+                   YouGov_DATA$social_media_use_grid_b==2|
+                   YouGov_DATA$social_media_use_grid_c==2|
+                   YouGov_DATA$social_media_use_grid_d==2|
+                   YouGov_DATA$social_media_use_grid_e==2|
+                   YouGov_DATA$social_media_use_grid_f==2|
+                   YouGov_DATA$social_media_use_grid_g==2|
+                   YouGov_DATA$social_media_use_grid_h==2|
+                   YouGov_DATA$social_media_use_grid_i==2|
+                   YouGov_DATA$social_media_use_grid_j==2|
+                   YouGov_DATA$social_media_use_grid_k==2] <- "Weekly"
+
+YouGov_DATA$SM_Use[YouGov_DATA$social_media_use_grid_a==3|
+                   YouGov_DATA$social_media_use_grid_b==3|
+                   YouGov_DATA$social_media_use_grid_c==3|
+                   YouGov_DATA$social_media_use_grid_d==3|
+                   YouGov_DATA$social_media_use_grid_e==3|
+                   YouGov_DATA$social_media_use_grid_f==3|
+                   YouGov_DATA$social_media_use_grid_g==3|
+                   YouGov_DATA$social_media_use_grid_h==3|
+                   YouGov_DATA$social_media_use_grid_i==3|
+                   YouGov_DATA$social_media_use_grid_j==3|
+                   YouGov_DATA$social_media_use_grid_k==3] <- "Once Daily"
+
+YouGov_DATA$SM_Use[YouGov_DATA$social_media_use_grid_a==4|
+                   YouGov_DATA$social_media_use_grid_b==4|
+                   YouGov_DATA$social_media_use_grid_c==4|
+                   YouGov_DATA$social_media_use_grid_d==4|
+                   YouGov_DATA$social_media_use_grid_e==4|
+                   YouGov_DATA$social_media_use_grid_f==4|
+                   YouGov_DATA$social_media_use_grid_g==4|
+                   YouGov_DATA$social_media_use_grid_h==4|
+                   YouGov_DATA$social_media_use_grid_i==4|
+                   YouGov_DATA$social_media_use_grid_j==4|
+                   YouGov_DATA$social_media_use_grid_k==4] <- "Several times a day"
+
+YouGov_DATA$SM_Use[YouGov_DATA$social_media_use_grid_a==5|
+                   YouGov_DATA$social_media_use_grid_b==5|
+                   YouGov_DATA$social_media_use_grid_c==5|
+                   YouGov_DATA$social_media_use_grid_d==5|
+                   YouGov_DATA$social_media_use_grid_e==5|
+                   YouGov_DATA$social_media_use_grid_f==5|
+                   YouGov_DATA$social_media_use_grid_g==5|
+                   YouGov_DATA$social_media_use_grid_h==5|
+                   YouGov_DATA$social_media_use_grid_i==5|
+                   YouGov_DATA$social_media_use_grid_j==5|
+                   YouGov_DATA$social_media_use_grid_k==5] <- "Less than once a month"
+
+YouGov_DATA$SM_Use[YouGov_DATA$social_media_use_grid_a==9|
+                   YouGov_DATA$social_media_use_grid_b==9|
+                   YouGov_DATA$social_media_use_grid_c==9|
+                   YouGov_DATA$social_media_use_grid_d==9|
+                   YouGov_DATA$social_media_use_grid_e==9|
+                   YouGov_DATA$social_media_use_grid_f==9|
+                   YouGov_DATA$social_media_use_grid_g==9|
+                   YouGov_DATA$social_media_use_grid_h==9|
+                   YouGov_DATA$social_media_use_grid_i==9|
+                   YouGov_DATA$social_media_use_grid_j==9|
+                   YouGov_DATA$social_media_use_grid_k==9] <- "Not asked"
+
+YouGov_DATA$SM_Use[is.na(YouGov_DATA$SM_Use)] <- "None"
+
+#SM Use Recode
+YouGov_DATA$SM_DailyUse[
+       YouGov_DATA$SM_Use=="Less than once a month" |
+       YouGov_DATA$SM_Use=="Monthly" |
+       YouGov_DATA$SM_Use=="None" |
+       YouGov_DATA$SM_Use=="Weekly"]<- "No"
+
+YouGov_DATA$SM_DailyUse[is.na(YouGov_DATA$SM_DailyUse)] <- "Yes"
+
+#Gender Identity
+YouGov_DATA$gender_identity <- as.numeric(YouGov_DATA$gender_identity)
+YouGov_DATA$gender_identity_NEW[
+       YouGov_DATA$gender_identity=="3" |
+       YouGov_DATA$gender_identity=="4" |
+       YouGov_DATA$gender_identity=="5" |
+       YouGov_DATA$gender_identity=="6"|
+       YouGov_DATA$gender_identity=="7"  ]<- "3"
+YouGov_DATA$gender_identity_NEW[
+       YouGov_DATA$gender_identity=="1" ]<- "1"
+YouGov_DATA$gender_identity_NEW[
+       YouGov_DATA$gender_identity=="2" ]<- "2"
+```
+```{r Exposures recode}
+#Offline Marketing Exposure
+YouGov_DATA$Offline_ecig_marketing[
+       YouGov_DATA$tobacco_mult_2==1 |
+       YouGov_DATA$tobacco_mult_3==1 |
+       YouGov_DATA$tobacco_mult_4==1 |
+       YouGov_DATA$tobacco_mult_5==1 |
+       YouGov_DATA$tobacco_mult_6==1]<- "Yes"
+
+YouGov_DATA$Offline_ecig_marketing[is.na(YouGov_DATA$Offline_ecig_marketing)] <- "No"
+
+#Scripted Entertainment - Film Recall
+YouGov_DATA$Film_recall_overall <- ifelse(YouGov_DATA$film_tv_recall_1==1 |
+       YouGov_DATA$film_tv_recall_2==1 |
+       YouGov_DATA$film_tv_recall_3==1 |
+       YouGov_DATA$film_tv_recall_4==1 |
+       YouGov_DATA$film_tv_recall_5==1 |
+       YouGov_DATA$film_tv_recall_6==1 |
+       YouGov_DATA$film_tv_recall_7==1 |
+       YouGov_DATA$film_tv_recall_8==1 |
+       YouGov_DATA$film_tv_recall_9==1,
+c("Yes"), c("No"))
+
+#Scripted Entertainment - Exposure
+YouGov_DATA$Film_ecig_exposure[YouGov_DATA$exposure_grid_a==1 |
+       YouGov_DATA$exposure_grid_b==1 |
+       YouGov_DATA$exposure_grid_c==1 |
+       YouGov_DATA$exposure_grid_d==1 |
+       YouGov_DATA$exposure_grid_e==1 |
+       YouGov_DATA$exposure_grid_f==1 |
+       YouGov_DATA$exposure_grid_g==1 |
+       YouGov_DATA$exposure_grid_h==1 |
+       YouGov_DATA$exposure_grid_i==1] <- "1"
+
+YouGov_DATA$Film_ecig_exposure[is.na(YouGov_DATA$Film_ecig_exposure)] <- "0"
+
+#Email stimuli - contest
+YouGov_DATA$Email_contest_exposure <- 
+ifelse(YouGov_DATA$promotion_email1==2 |
+       YouGov_DATA$promotion_email1==3,
+c("Yes"), c("No"))
+
+#Email stimuli - coupon
+YouGov_DATA$Email_coupon_exposure <- 
+ifelse(YouGov_DATA$promotion_email2==2 |
+       YouGov_DATA$promotion_email2==3,
+c("Yes"), c("No"))
+
+#Email stimuli - flavor
+YouGov_DATA$Email_flavor_exposure <- 
+ifelse(YouGov_DATA$promotion_email3==2 |
+       YouGov_DATA$promotion_email3==3,
+c("Yes"), c("No"))
+
+#Email stimuli - design
+YouGov_DATA$Email_design_exposure <- 
+ifelse(YouGov_DATA$promotion_email4==2 |
+       YouGov_DATA$promotion_email4==3,
+c("Yes"), c("No"))
+
+#Email stimuli - overall
+YouGov_DATA$Email_stimuli_exposure <- 
+ifelse(YouGov_DATA$Email_contest_exposure=="Yes" |
+       YouGov_DATA$Email_coupon_exposure=="Yes" |
+       YouGov_DATA$Email_flavor_exposure=="Yes" |
+       YouGov_DATA$Email_design_exposure=="Yes",
+c("Yes"), c("No"))
+
+#Insta stimuli - contest
+YouGov_DATA$Insta_contest_exposure <- 
+ifelse(YouGov_DATA$promotion_insta1==2 |
+       YouGov_DATA$promotion_insta1==3,
+c("Yes"), c("No"))
+
+#Insta stimuli - coupon
+YouGov_DATA$Insta_coupon_exposure <- 
+ifelse(YouGov_DATA$promotion_insta2==2 |
+       YouGov_DATA$promotion_insta2==3,
+c("Yes"), c("No"))
+
+#Insta stimuli - flavor
+YouGov_DATA$Insta_flavor_exposure <- 
+ifelse(YouGov_DATA$promotion_insta3==2 |
+       YouGov_DATA$promotion_insta3==3,
+c("Yes"), c("No"))
+
+#Insta stimuli - design
+YouGov_DATA$Insta_design_exposure <- 
+ifelse(YouGov_DATA$promotion_insta4==2 |
+       YouGov_DATA$promotion_insta4==3,
+c("Yes"), c("No"))
+
+#Insta stimuli - overall
+YouGov_DATA$Insta_stimuli_exposure <- 
+ifelse(YouGov_DATA$Insta_contest_exposure=="Yes" |
+       YouGov_DATA$Insta_coupon_exposure=="Yes" |
+       YouGov_DATA$Insta_flavor_exposure=="Yes" |
+       YouGov_DATA$Insta_design_exposure=="Yes",
+c("Yes"), c("No"))
+
+#Tiktok stimuli - coupon
+YouGov_DATA$Tik_coupon_exposure <- 
+ifelse(YouGov_DATA$promotion_tik2==2 |
+       YouGov_DATA$promotion_tik2==3,
+c("Yes"), c("No"))
+
+#Tiktok stimuli - flavor
+YouGov_DATA$Tik_flavor_exposure <- 
+ifelse(YouGov_DATA$promotion_tik3==2 |
+       YouGov_DATA$promotion_tik3==3,
+c("Yes"), c("No"))
+
+#Tiktok stimuli - design
+YouGov_DATA$Tik_design_exposure <- 
+ifelse(YouGov_DATA$promotion_tik4==2 |
+       YouGov_DATA$promotion_tik4==3,
+c("Yes"), c("No"))
+
+#Tiktok stimuli - overall
+YouGov_DATA$Tik_stimuli_exposure <- 
+ifelse(YouGov_DATA$Tik_coupon_exposure=="Yes" |
+       YouGov_DATA$Tik_flavor_exposure=="Yes" |
+       YouGov_DATA$Tik_design_exposure=="Yes",
+c("Yes"), c("No"))
+
+#YouTube stimuli - instructional
+YouGov_DATA$YouTube_instructional_exposure <- 
+ifelse(YouGov_DATA$promotion_you2==2 |
+       YouGov_DATA$promotion_you2==3,
+c("Yes"), c("No"))
+
+#YouTube stimuli - flavor
+YouGov_DATA$YouTube_flavor_exposure <- 
+ifelse(YouGov_DATA$promotion_you3==2 |
+       YouGov_DATA$promotion_you3==3,
+c("Yes"), c("No"))
+
+#YouTube stimuli - design
+YouGov_DATA$YouTube_design_exposure <- 
+ifelse(YouGov_DATA$promotion_you4==2 |
+       YouGov_DATA$promotion_you4==3,
+c("Yes"), c("No"))
+
+#YouTube stimuli - overall
+YouGov_DATA$YouTube_stimuli_exposure <- 
+ifelse(YouGov_DATA$YouTube_instructional_exposure=="Yes" |
+       YouGov_DATA$YouTube_flavor_exposure=="Yes" |
+       YouGov_DATA$YouTube_design_exposure=="Yes",
+c("Yes"), c("No"))
+
+#Signed up for newsletter
+YouGov_DATA$direct_exposure_newsletter_30 <- as.numeric(YouGov_DATA$direct_exposure_newsletter_30)
+YouGov_DATA$direct_exposure_newsletter_30[
+       YouGov_DATA$direct_exposure_newsletter_30==2]<- "0"
+
+```
+```{r Julia experiment recode}
+#Julia Experiment
+YouGov_DATA$t1_vid[is.na(YouGov_DATA$t1_vid)] <- "0"
+YouGov_DATA$t2_vid[is.na(YouGov_DATA$t2_vid)] <- "0"
+YouGov_DATA$t3_vid[is.na(YouGov_DATA$t3_vid)] <- "0"
+YouGov_DATA$t4_vid[is.na(YouGov_DATA$t4_vid)] <- "0"
+YouGov_DATA$t5_vid[is.na(YouGov_DATA$t5_vid)] <- "0"
+YouGov_DATA$t6_vid[is.na(YouGov_DATA$t6_vid)] <- "0"
+YouGov_DATA$t7_vid[is.na(YouGov_DATA$t7_vid)] <- "0"
+YouGov_DATA$t8_vid[is.na(YouGov_DATA$t8_vid)] <- "0"
+YouGov_DATA$t9_vid[is.na(YouGov_DATA$t9_vid)] <- "0"
+YouGov_DATA$t10_vid[is.na(YouGov_DATA$t10_vid)] <- "0"
+
+YouGov_DATA$Julia_Treatment[YouGov_DATA$t1_vid==1 &
+       YouGov_DATA$t2_vid==1 &
+       YouGov_DATA$t3_vid==1 &
+       YouGov_DATA$t4_vid==1 &
+       YouGov_DATA$t5_vid==1 &
+       YouGov_DATA$t6_vid==1 &
+       YouGov_DATA$t7_vid==1 &
+       YouGov_DATA$t8_vid==1 &
+       YouGov_DATA$t9_vid==1 &
+       YouGov_DATA$t10_vid==1] <- "Treatment"
+
+YouGov_DATA$Julia_Control[YouGov_DATA$c1_vid==1 &
+       YouGov_DATA$c2_vid==1 &
+       YouGov_DATA$c3_vid==1 &
+       YouGov_DATA$c4_vid==1 &
+       YouGov_DATA$c5_vid==1 &
+       YouGov_DATA$c6_vid==1 &
+       YouGov_DATA$c7_vid==1 &
+       YouGov_DATA$c8_vid==1 &
+       YouGov_DATA$c9_vid==1 &
+       YouGov_DATA$c10_vid==1] <- "Control"
+YouGov_DATA$Julia_Condition_FINAL <- paste(YouGov_DATA$Julia_Treatment,
+                                           YouGov_DATA$Julia_Control)
+
+YouGov_DATA$Julia_Condition_FINAL[YouGov_DATA$Julia_Condition_FINAL=="NA Control"] <- "Control"
+YouGov_DATA$Julia_Condition_FINAL[YouGov_DATA$Julia_Condition_FINAL=="NA NA"] <- "Error"
+YouGov_DATA$Julia_Condition_FINAL[YouGov_DATA$Julia_Condition_FINAL=="Treatment NA"] <- "Treatment"
+
+YouGov_DATA$Julia_Condition_FINAL <- as.factor(YouGov_DATA$Julia_Condition_FINAL)
+```
+```{r Tobacco use outcomes recode}
+#Perceived harms
+YouGov_DATA$Harms_recoded[YouGov_DATA$c_q2==1 |
+                          YouGov_DATA$c_q2==2] <- "0"
+
+YouGov_DATA$Harms_recoded[YouGov_DATA$c_q2==3 |
+                          YouGov_DATA$c_q2==4] <- "1"
+YouGov_DATA$Harms_recoded <- as.numeric(YouGov_DATA$Harms_recoded)
+
+#Perceived benefits
+YouGov_DATA$Benefits_recoded[YouGov_DATA$c_q3==1] <- "0"
+
+YouGov_DATA$Benefits_recoded[YouGov_DATA$c_q3==2 |
+                          YouGov_DATA$c_q3==3 |
+                          YouGov_DATA$c_q3==4] <- "1"
+YouGov_DATA$Benefits_recoded <- as.numeric(YouGov_DATA$Benefits_recoded)
+
+##Susceptibility to Use
+#Friend
+YouGov_DATA$Sus_Friend[YouGov_DATA$c_q4==1] <- "0"
+
+YouGov_DATA$Sus_Friend[YouGov_DATA$c_q4==2 |
+                       YouGov_DATA$c_q4==3 |
+                       YouGov_DATA$c_q4==4] <- "1"
+
+#Try
+YouGov_DATA$Sus_Try[YouGov_DATA$c_q5==1] <- "0"
+
+YouGov_DATA$Sus_Try[YouGov_DATA$c_q5==2 |
+                       YouGov_DATA$c_q5==3 |
+                       YouGov_DATA$c_q5==4] <- "1"
+
+#Curious
+YouGov_DATA$Sus_Curious[YouGov_DATA$c_q6==1] <- "0"
+
+YouGov_DATA$Sus_Curious[YouGov_DATA$c_q6==2 |
+                       YouGov_DATA$c_q6==3 |
+                       YouGov_DATA$c_q6==4] <- "1"
+
+#Overall Sus Measure
+attach(YouGov_DATA)
+YouGov_DATA$Sus_TOTAL <- YouGov_DATA$c_q4 +
+                         YouGov_DATA$c_q5 +
+                         YouGov_DATA$c_q6
+
+YouGov_DATA$Sus_Di[Sus_TOTAL==3] <- "0"
+
+YouGov_DATA$Sus_Di[Sus_TOTAL>3] <- "1"
+
+YouGov_DATA$Sus_Di <- as.factor(YouGov_DATA$Sus_Di)
+
+#Vape Appeal
+YouGov_DATA$Vape_Appeal[YouGov_DATA$vape_appeal_look==1] <- "0"
+
+YouGov_DATA$Vape_Appeal[YouGov_DATA$vape_appeal_look==2 |
+                       YouGov_DATA$vape_appeal_look==3 |
+                       YouGov_DATA$vape_appeal_look==4] <- "1"
+
+YouGov_DATA$Vape_Appeal <- as.numeric(YouGov_DATA$Vape_Appeal)
+
+#Purchase Intentions
+YouGov_DATA$Vape_Buy[YouGov_DATA$vape_appeal_buy==1] <- "0"
+
+YouGov_DATA$Vape_Buy[YouGov_DATA$vape_appeal_buy==2 |
+                     YouGov_DATA$vape_appeal_buy==3 |
+                     YouGov_DATA$vape_appeal_buy==4] <- "1"
+
+YouGov_DATA$Vape_Buy <- as.numeric(YouGov_DATA$Vape_Buy)
+```
+```{r Overall exposure composites recode}
+#Current E-cigarette marketing exposures
+YouGov_DATA$source_30 <- as.numeric(YouGov_DATA$source_30)
+YouGov_DATA$direct_exposure_email_30 <- as.numeric(YouGov_DATA$direct_exposure_email_30)
+YouGov_DATA$direct_exposure_website_30 <- as.numeric(YouGov_DATA$direct_exposure_website_30)
+YouGov_DATA$Film_ecig_exposure <- as.numeric(YouGov_DATA$Film_ecig_exposure)
+
+YouGov_DATA$Current_ecig_marketing_exposure[YouGov_DATA$source_30=="1" |
+YouGov_DATA$direct_exposure_email_30=="1" |
+YouGov_DATA$direct_exposure_website_30=="1"]<- "Yes"
+
+YouGov_DATA$Current_ecig_marketing_exposure[is.na(YouGov_DATA$Current_ecig_marketing_exposure)] <- "No"
+
+#Lifetime E-cigarette marketing exposures
+YouGov_DATA$source <- as.numeric(YouGov_DATA$source)
+YouGov_DATA$direct_exposure_email <- as.numeric(YouGov_DATA$direct_exposure_email)
+YouGov_DATA$direct_exposure_website <- as.numeric(YouGov_DATA$direct_exposure_website)
+
+
+YouGov_DATA$Lifetime_ecig_marketing_exposure[YouGov_DATA$source=="1" |
+YouGov_DATA$direct_exposure_email=="1" |
+YouGov_DATA$direct_exposure_website=="1"]<- "Yes"
+
+YouGov_DATA$Lifetime_ecig_marketing_exposure[is.na(YouGov_DATA$Lifetime_ecig_marketing_exposure)] <- "No"
+
+#Overall E-cigarette recognition to stimuli
+YouGov_DATA$Ecig_stimuli_recognition[
+YouGov_DATA$Insta_stimuli_exposure=="Yes" |
+YouGov_DATA$Email_stimuli_exposure=="Yes" |
+YouGov_DATA$YouTube_stimuli_exposure=="Yes" |
+YouGov_DATA$Tik_stimuli_exposure=="Yes"]<- "Yes"
+
+YouGov_DATA$Ecig_stimuli_recognition[is.na(YouGov_DATA$Ecig_stimuli_recognition)] <- "No"
+```
+```{r Substance use recode}
+#Current Substance Use
+YouGov_DATA$alcohol_use_30 <- as.numeric(YouGov_DATA$alcohol_use_30)
+YouGov_DATA$cigarette_use_30 <- as.numeric(YouGov_DATA$cigarette_use_30)
+YouGov_DATA$marijuana_use_30 <- as.numeric(YouGov_DATA$marijuana_use_30)
+YouGov_DATA$vape_use_30 <- as.numeric(YouGov_DATA$vape_use_30)
+
+YouGov_DATA$Current_Substance_Use[
+YouGov_DATA$alcohol_use_30=="1" |
+YouGov_DATA$cigarette_use_30=="1" |
+YouGov_DATA$marijuana_use_30=="1"]<- "Yes"
+
+YouGov_DATA$Current_Substance_Use[is.na(YouGov_DATA$Current_Substance_Use)] <- "No"
+
+#Lifetime Substance Use
+YouGov_DATA$alcohol_use <- as.numeric(YouGov_DATA$alcohol_use)
+YouGov_DATA$cigarette_use <- as.numeric(YouGov_DATA$cigarette_use)
+YouGov_DATA$marijuana_use <- as.numeric(YouGov_DATA$marijuana_use)
+YouGov_DATA$vape_use <- as.numeric(YouGov_DATA$vape_use)
+
+YouGov_DATA$Lifetime_Substance_Use[
+YouGov_DATA$alcohol_use=="1" |
+YouGov_DATA$cigarette_use=="1" |
+YouGov_DATA$marijuana_use=="1"]<- "Yes"
+
+YouGov_DATA$Lifetime_Substance_Use[is.na(YouGov_DATA$Lifetime_Substance_Use)] <- "No"
+
+#Current vape use
+YouGov_DATA$Current_vape_use[
+       YouGov_DATA$vape_use_30==1]<- "1"
+
+YouGov_DATA$Current_vape_use[
+       YouGov_DATA$vape_use_30==2]<- "0"
+YouGov_DATA$Current_vape_use <- as.numeric(YouGov_DATA$Current_vape_use)
+
+#Lifetime vape use
+YouGov_DATA$Lifetime_vape_use[
+       YouGov_DATA$vape_use==1]<- "1"
+
+YouGov_DATA$Lifetime_vape_use[
+       YouGov_DATA$vape_use==2]<- "0"
+YouGov_DATA$Lifetime_vape_use <- as.numeric(YouGov_DATA$Lifetime_vape_use)
+
+```
+```{r Dose response recode}
+#Current Exposures for dose response
+YouGov_DATA$source_30[
+       YouGov_DATA$source_30==2]<- "0"
+YouGov_DATA$direct_exposure_email_30[
+       YouGov_DATA$direct_exposure_email_30==2]<- "0"
+YouGov_DATA$direct_exposure_website_30[
+       YouGov_DATA$direct_exposure_website_30==2]<- "0"
+
+#Current ECig Marketing Exposure Total
+YouGov_DATA$source_30 <- as.numeric(YouGov_DATA$source_30)
+
+YouGov_DATA$direct_exposure_email_30 <- as.numeric(YouGov_DATA$direct_exposure_email_30)
+
+YouGov_DATA$direct_exposure_website_30 <- as.numeric(YouGov_DATA$direct_exposure_website_30)
+
+YouGov_DATA$Film_ecig_exposure <- as.numeric(YouGov_DATA$Film_ecig_exposure)
+
+YouGov_DATA$Current_ecig_marketing_exposure_TOTAL <- rowSums(YouGov_DATA[ ,c(87,89,110)],
+na.rm = TRUE)
+
+#Lifetime ECig Marketing Exposure Total
+#Current Exposures for dose response
+YouGov_DATA$source[
+       YouGov_DATA$source==2]<- "0"
+YouGov_DATA$direct_exposure_email[
+       YouGov_DATA$direct_exposure_email==2]<- "0"
+YouGov_DATA$direct_exposure_website[
+       YouGov_DATA$direct_exposure_website==2]<- "0"
+YouGov_DATA$source <- as.numeric(YouGov_DATA$source)
+YouGov_DATA$direct_exposure_email <- as.numeric(YouGov_DATA$direct_exposure_email)
+YouGov_DATA$direct_exposure_website <- as.numeric(YouGov_DATA$direct_exposure_website)
+
+
+YouGov_DATA$Lifetime_ecig_marketing_exposure_TOTAL <- rowSums(YouGov_DATA[ ,c(85,86,109)],
+na.rm = TRUE)
+
+```
+```{r Brand exposures}
+YouGov_DATA$ecig_brand_exposure[
+        YouGov_DATA$brand_2==1 |
+        YouGov_DATA$brand_3==1 |
+        YouGov_DATA$brand_4==1 |
+        YouGov_DATA$brand_5==1 |
+        YouGov_DATA$brand_6==1 |
+        YouGov_DATA$brand_7==1 |
+        YouGov_DATA$brand_8==1 |
+        YouGov_DATA$brand_9==1 |
+        YouGov_DATA$brand_10==1 |
+        YouGov_DATA$brand_11==1 |
+        YouGov_DATA$brand_12==1 |
+        YouGov_DATA$brand_13==1 |
+        YouGov_DATA$brand_14==1 |
+        YouGov_DATA$brand_15==1 |
+        YouGov_DATA$brand_16==1 |
+        YouGov_DATA$brand_17==1 |
+        YouGov_DATA$brand_18==1 |
+        YouGov_DATA$brand_19==1 |
+        YouGov_DATA$brand_20==1 |
+        YouGov_DATA$brand_21==1 |
+        YouGov_DATA$brand_22==1 |
+        YouGov_DATA$brand_23==1 |
+        YouGov_DATA$brand_24==1 |
+        YouGov_DATA$brand_25==1 |
+        YouGov_DATA$brand_26==1 |
+        YouGov_DATA$brand_27==1
+       ]<- "1"
+
+YouGov_DATA$ecig_brand_exposure[is.na(YouGov_DATA$ecig_brand_exposure)] <- "0"
+```
+```{r Product exposures}
+YouGov_DATA$product_type_3 <- as.numeric(YouGov_DATA$product_type_3)
+YouGov_DATA$product_type_3[
+       YouGov_DATA$product_type_3==2]<- "0"
+
+YouGov_DATA$product_type_4 <- as.numeric(YouGov_DATA$product_type_4)
+YouGov_DATA$product_type_4[
+       YouGov_DATA$product_type_4==2]<- "0"
+
+YouGov_DATA$ecig_product_exposure[
+        YouGov_DATA$product_type_3==1 |
+        YouGov_DATA$product_type_4==1 
+       ]<- "1"
+
+YouGov_DATA$ecig_product_exposure[is.na(YouGov_DATA$ecig_product_exposure)] <- "0"
+
+```
+
+#Survey Weighted Object
+```{r Create Survey Weight Object}
+#Create weighted object
+my_design <-svydesign(id=caseid, 
+                      weights=weight, 
+                      data=YouGov_DATA)
+```
+#Demographics and Exposures
+```{r Sample Characteristics Raw, Weighted}
+#Gender identity - raw
+freqdist::freqdist(YouGov_DATA$gender_identity)
+#Gender identity - weighted
+svytable(~YouGov_DATA$gender_identity,
+         design=my_design)
+
+#Sexual identity - raw
+freqdist::freqdist(YouGov_DATA$sexual_orientation)
+#Sexual identity - weighted
+svytable(~YouGov_DATA$sexual_orientation,
+         design=my_design)
+
+#Age - raw
+freqdist::freqdist(YouGov_DATA$Age)
+#Age - weighted
+svytable(~YouGov_DATA$Age,
+         design=my_design)
+
+#Education - raw
+freqdist::freqdist(YouGov_DATA$educ)
+#Education - weighted
+svytable(~YouGov_DATA$educ,
+         design=my_design)
+
+#Race - raw
+freqdist::freqdist(YouGov_DATA$race)
+#Race - weighted
+svytable(~YouGov_DATA$race,
+         design=my_design)
+#Sexual orientation - raw
+freqdist::freqdist(YouGov_DATA$sexual_orientation)
+#Sexual orientation - weighted
+svytable(~YouGov_DATA$sexual_orientation,
+         design=my_design)
+
+#Social media use - raw
+freqdist::freqdist(YouGov_DATA$SM_Use)
+#Social media use - weighted
+svytable(~YouGov_DATA$SM_Use,
+         design=my_design)
+
+
+
+```
+```{r Substance Use History}
+#Lifetime alcohol use - raw
+freqdist::freqdist(YouGov_DATA$alcohol_use)
+#Lifetime alcohol use - weighted
+svytable(~YouGov_DATA$alcohol_use,
+         design=my_design)
+
+#Lifetime cigarette use - raw
+freqdist::freqdist(YouGov_DATA$cigarette_use)
+#Lifetime cigarette use - weighted
+svytable(~YouGov_DATA$cigarette_use,
+         design=my_design)
+
+#Lifetime cannabis use - raw
+freqdist::freqdist(YouGov_DATA$marijuana_use)
+#Lifetime cannabis use - weighted
+svytable(~YouGov_DATA$marijuana_use,
+         design=my_design)
+
+#Lifetime ecig use - raw
+freqdist::freqdist(YouGov_DATA$vape_use)
+#Lifetime ecig use - weighted
+svytable(~YouGov_DATA$vape_use,
+         design=my_design)
+
+#Lifetime substance use - raw
+freqdist::freqdist(YouGov_DATA$Lifetime_Substance_Use)
+#Lifetime substance use - weighted
+svytable(~YouGov_DATA$Lifetime_Substance_Use,
+         design=my_design)
+
+####Current
+#Current alcohol use - raw
+freqdist::freqdist(YouGov_DATA$alcohol_use_30)
+#Current alcohol use - weighted
+svytable(~YouGov_DATA$alcohol_use_30,
+         design=my_design)
+
+#Current cigarette use - raw
+freqdist::freqdist(YouGov_DATA$cigarette_use_30)
+#Current cigarette use - weighted
+svytable(~YouGov_DATA$cigarette_use_30,
+         design=my_design)
+
+#Current cannabis use - raw
+freqdist::freqdist(YouGov_DATA$marijuana_use_30)
+#Current cannabis use - weighted
+svytable(~YouGov_DATA$marijuana_use_30,
+         design=my_design)
+
+#Current ecig use - raw
+freqdist::freqdist(YouGov_DATA$vape_use_30)
+#Current ecig use - weighted
+svytable(~YouGov_DATA$vape_use_30,
+         design=my_design)
+
+#Current substance use - raw
+freqdist::freqdist(YouGov_DATA$Current_Substance_Use)
+#Current substance use - weighted
+svytable(~YouGov_DATA$Current_Substance_Use,
+         design=my_design)
+
+```
+```{r Exposure to Ecig Marketing}
+####Current
+#Current social media  - raw
+freqdist::freqdist(YouGov_DATA$source_30)
+#Current social media  - weighted
+svytable(~YouGov_DATA$source_30,
+         design=my_design)
+
+#Current email - raw
+freqdist::freqdist(YouGov_DATA$direct_exposure_email_30)
+#Current email - weighted
+svytable(~YouGov_DATA$direct_exposure_email_30,
+         design=my_design)
+
+#Current email newsletter - raw
+freqdist::freqdist(YouGov_DATA$direct_exposure_newsletter_30)
+#Current email newsletter - weighted
+svytable(~YouGov_DATA$direct_exposure_newsletter_30,
+         design=my_design)
+
+#Current website - raw
+freqdist::freqdist(YouGov_DATA$direct_exposure_website_30)
+#Current website - weighted
+svytable(~YouGov_DATA$direct_exposure_website_30,
+         design=my_design)
+
+#Current overall - raw
+freqdist::freqdist(YouGov_DATA$Current_ecig_marketing_exposure)
+#Current overall - weighted
+svytable(~YouGov_DATA$Current_ecig_marketing_exposure,
+         design=my_design)
+
+####Lifetime
+#Lifetime social media  - raw
+freqdist::freqdist(YouGov_DATA$source)
+#Lifetime social media  - weighted
+svytable(~YouGov_DATA$source,
+         design=my_design)
+
+#Lifetime email - raw
+freqdist::freqdist(YouGov_DATA$direct_exposure_email)
+#Lifetime email - weighted
+svytable(~YouGov_DATA$direct_exposure_email,
+         design=my_design)
+
+#Lifetime website - raw
+freqdist::freqdist(YouGov_DATA$direct_exposure_website)
+#Lifetime website - weighted
+svytable(~YouGov_DATA$direct_exposure_website,
+         design=my_design)
+
+#Lifetime overall - raw
+freqdist::freqdist(YouGov_DATA$Lifetime_ecig_marketing_exposure)
+#Lifetime overall - weighted
+svytable(~YouGov_DATA$Lifetime_ecig_marketing_exposure,
+         design=my_design)
+
+#Scripted - raw
+freqdist::freqdist(YouGov_DATA$Film_ecig_exposure)
+#Scripted - weighted
+svytable(~YouGov_DATA$Film_ecig_exposure,
+         design=my_design)
+
+#Ecig products - raw
+freqdist::freqdist(YouGov_DATA$ecig_product_exposure)
+#Ecig products - weighted
+svytable(~YouGov_DATA$ecig_product_exposure,
+         design=my_design)
+
+#Ecig brands - raw
+freqdist::freqdist(YouGov_DATA$ecig_brand_exposure)
+#Ecig brands - weighted
+svytable(~YouGov_DATA$ecig_brand_exposure,
+         design=my_design)
+
+###Offline
+#Current billboard  - raw
+freqdist::freqdist(YouGov_DATA$tobacco_mult_2)
+#Current billboard  - weighted
+svytable(~YouGov_DATA$tobacco_mult_2,
+         design=my_design)
+
+#Current poster  - raw
+freqdist::freqdist(YouGov_DATA$tobacco_mult_3)
+#Current poster  - weighted
+svytable(~YouGov_DATA$tobacco_mult_3,
+         design=my_design)
+
+#Current retail  - raw
+freqdist::freqdist(YouGov_DATA$tobacco_mult_4)
+#Current retail  - weighted
+svytable(~YouGov_DATA$tobacco_mult_4,
+         design=my_design)
+
+#Current printed  - raw
+freqdist::freqdist(YouGov_DATA$tobacco_mult_5)
+#Current printed  - weighted
+svytable(~YouGov_DATA$tobacco_mult_5,
+         design=my_design)
+
+#Current overall printed  - raw
+freqdist::freqdist(YouGov_DATA$Offline_ecig_marketing)
+#Current printed  - weighted
+svytable(~YouGov_DATA$Offline_ecig_marketing,
+         design=my_design)
+
+
+
+```
+```{r Prevalence of Stimuli Exposures}
+#Social media marketing
+freqdist::freqdist(YouGov_DATA$source)
+freqdist::freqdist(YouGov_DATA$source_30)
+
+#Direct Marketing Exposure - Email
+freqdist::freqdist(YouGov_DATA$direct_exposure_email)
+freqdist::freqdist(YouGov_DATA$direct_exposure_email_30)
+freqdist::freqdist(YouGov_DATA$direct_exposure_newsletter_30)
+
+#Direct Marketing Exposure - Websites
+freqdist::freqdist(YouGov_DATA$direct_exposure_website)
+freqdist::freqdist(YouGov_DATA$direct_exposure_website_30)
+
+#Scripted Entertainment
+freqdist::freqdist(YouGov_DATA$Film_recall_overall)
+freqdist::freqdist(YouGov_DATA$Film_ecig_exposure)
+
+#Recognition Instagram
+freqdist::freqdist(YouGov_DATA$Insta_contest_exposure)
+freqdist::freqdist(YouGov_DATA$Insta_coupon_exposure)
+freqdist::freqdist(YouGov_DATA$Insta_flavor_exposure)
+freqdist::freqdist(YouGov_DATA$Insta_design_exposure)
+freqdist::freqdist(YouGov_DATA$Insta_stimuli_exposure)
+
+#Recognition Email
+freqdist::freqdist(YouGov_DATA$Email_contest_exposure)
+freqdist::freqdist(YouGov_DATA$Email_coupon_exposure)
+freqdist::freqdist(YouGov_DATA$Email_flavor_exposure)
+freqdist::freqdist(YouGov_DATA$Email_design_exposure)
+freqdist::freqdist(YouGov_DATA$Email_stimuli_exposure)
+
+#Recognition YouTube
+freqdist::freqdist(YouGov_DATA$YouTube_instructional_exposure)
+freqdist::freqdist(YouGov_DATA$YouTube_flavor_exposure)
+freqdist::freqdist(YouGov_DATA$YouTube_design_exposure)
+freqdist::freqdist(YouGov_DATA$YouTube_stimuli_exposure)
+
+#Recognition TikTok
+freqdist::freqdist(YouGov_DATA$Tik_coupon_exposure)
+freqdist::freqdist(YouGov_DATA$Tik_flavor_exposure)
+freqdist::freqdist(YouGov_DATA$Tik_design_exposure)
+freqdist::freqdist(YouGov_DATA$Tik_stimuli_exposure)
+
+mytable <- table(YouGov_DATA$Current_ecig_marketing_exposure,
+                YouGov_DATA$Sus_Di) # A will be rows, B will be columns
+mytable # print table
+chisq.test(mytable)
+
+```
+```{r Social media use by Platform}
+#YouTube - raw
+freqdist::freqdist(YouGov_DATA$social_media_use_grid_a)
+#YouTube - weighted
+svytable(~YouGov_DATA$social_media_use_grid_a,
+         design=my_design)
+
+#Facebook - raw
+freqdist::freqdist(YouGov_DATA$social_media_use_grid_b)
+#Facebook - weighted
+svytable(~YouGov_DATA$social_media_use_grid_b,
+         design=my_design)
+
+#Reddit - raw
+freqdist::freqdist(YouGov_DATA$social_media_use_grid_c)
+#Reddit - weighted
+svytable(~YouGov_DATA$social_media_use_grid_c,
+         design=my_design)
+
+#Instagram - raw
+freqdist::freqdist(YouGov_DATA$social_media_use_grid_d)
+#Instagram - weighted
+svytable(~YouGov_DATA$social_media_use_grid_d,
+         design=my_design)
+
+#Twitter- raw
+freqdist::freqdist(YouGov_DATA$social_media_use_grid_e)
+#Twitter - weighted
+svytable(~YouGov_DATA$social_media_use_grid_e,
+         design=my_design)
+
+#TikTok- raw
+freqdist::freqdist(YouGov_DATA$social_media_use_grid_f)
+#TikTok - weighted
+svytable(~YouGov_DATA$social_media_use_grid_f,
+         design=my_design)
+
+#Pinterest - raw
+freqdist::freqdist(YouGov_DATA$social_media_use_grid_g)
+#Pinterest - weighted
+svytable(~YouGov_DATA$social_media_use_grid_g,
+         design=my_design)
+
+#SnapChat - raw
+freqdist::freqdist(YouGov_DATA$social_media_use_grid_h)
+#SnapChat - weighted
+svytable(~YouGov_DATA$social_media_use_grid_h,
+         design=my_design)
+
+#Twitch - raw
+freqdist::freqdist(YouGov_DATA$social_media_use_grid_j)
+#Twitch - weighted
+svytable(~YouGov_DATA$social_media_use_grid_j,
+         design=my_design)
+```
+```{r Product type exposure}
+#Oldergen - raw
+freqdist::freqdist(YouGov_DATA$product_type_3)
+#Older gen - weighted
+svytable(~YouGov_DATA$product_type_3,
+         design=my_design)
+
+#Disposable - raw
+freqdist::freqdist(YouGov_DATA$product_type_4)
+#Disposable - weighted
+svytable(~YouGov_DATA$product_type_4,
+         design=my_design)
+
+```
+
+
+#Modeling Online Exposures with E-Cig Outcomes
+```{r Lifetime Exposure}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  Lifetime_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Lifetime_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ Lifetime_ecig_marketing_exposure +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ Lifetime_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ Lifetime_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ Lifetime_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Current Exposure}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  Current_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Current_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ Current_ecig_marketing_exposure +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ Current_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ Current_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ Current_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Social Media - Lifetime Exposure}
+###Lifetime
+#Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  source  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ source  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ source +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ source  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ source  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ source  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Social Media - Current Exposure}
+###Current
+#Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  source_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ source_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ source_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ source_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ source_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ source_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Websites - Lifetime Exposure}
+###Lifetime
+#Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  direct_exposure_website  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ direct_exposure_website  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ direct_exposure_website +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ direct_exposure_website  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ direct_exposure_website  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ direct_exposure_website  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Websites - Current Exposure}
+###Lifetime
+#Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  direct_exposure_website_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ direct_exposure_website_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ direct_exposure_website_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ direct_exposure_website_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ direct_exposure_website_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ direct_exposure_website_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Email - Lifetime Exposure}
+###Lifetime
+#Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  direct_exposure_email  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ direct_exposure_email  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ direct_exposure_email +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ direct_exposure_email  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ direct_exposure_email  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ direct_exposure_email  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Email - Current Exposure}
+###Lifetime
+#Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  direct_exposure_email_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ direct_exposure_email_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ direct_exposure_email_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ direct_exposure_email_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ direct_exposure_email_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ direct_exposure_email_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Email Newsletters - Current Exposure}
+###Lifetime
+#Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  direct_exposure_newsletter_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ direct_exposure_newsletter_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ direct_exposure_newsletter_30 +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ direct_exposure_newsletter_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ direct_exposure_newsletter_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ direct_exposure_newsletter_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+#Stimuli Exposure with E-Cig Outcomes
+```{r Any Stimuli Exposure}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  Any_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Any_stimuli_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ Any_stimuli_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ Any_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ Any_stimuli_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ Any_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Imagebased Exposure}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  Imagebased_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Imagebased_stimuli_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ Imagebased_stimuli_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ Imagebased_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ Imagebased_stimuli_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ Imagebased_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Audiovisual Exposure}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  Audiovisual_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Audiovisual_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ Audiovisual_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ Audiovisual_stimuli_exposure +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ Audiovisual_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ Audiovisual_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Dose Repsonse Any Stimuli Exposure}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  Stimuli_exposure_TOTAL  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Stimuli_exposure_TOTAL   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ Stimuli_exposure_TOTAL   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      race+
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ Stimuli_exposure_TOTAL  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      race+
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ Stimuli_exposure_TOTAL   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      race+
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ Stimuli_exposure_TOTAL  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      race+
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Dose Response Image Stimuli Exposure}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  Stimuli_Image_TOTAL  +
+                      Current_Substance_Use +
+                      Oddddffline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Stimuli_Image_TOTAL   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ Stimuli_Image_TOTAL   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ Stimuli_Image_TOTAL  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ Stimuli_Image_TOTAL   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ Stimuli_Image_TOTAL  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+```{r Dose Response Audiovisual Stimuli Exposure}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  Stimuli_audiovisual_TOTAL  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Stimuli_audiovisual_TOTAL   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ Stimuli_audiovisual_TOTAL   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ Stimuli_audiovisual_TOTAL  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ Stimuli_audiovisual_TOTAL   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ Stimuli_audiovisual_TOTAL  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      sex +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+```
+#Modeling Scripted Entertainment with E-Cig Outcomes
+```{r Netflix exposures}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  Film_ecig_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Film_ecig_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ Film_ecig_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ Film_ecig_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ Film_ecig_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ Film_ecig_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+```
+#Modeling Brand Exposures with E-Cig Outcomes
+```{r Brand exposures}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~  ecig_brand_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ ecig_brand_exposure    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ ecig_brand_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ ecig_brand_exposure    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ ecig_brand_exposure    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ ecig_brand_exposure    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+```
+#Modeling Product Type Exposures with E-Cig Outcomes
+```{r E-cig product exposure}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ ecig_product_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ ecig_product_exposure    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ ecig_product_exposure   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ ecig_product_exposure    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ ecig_product_exposure    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ ecig_product_exposure    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+```
+#Experimental Results
+```{r Influencer experiment}
+YouGov_DATA$Julia_Condition_FINAL_2[YouGov_DATA$Julia_Condition_FINAL=="Control"] <- "Control"
+YouGov_DATA$Julia_Condition_FINAL_2[YouGov_DATA$Julia_Condition_FINAL=="Treatment"] <- "Treatment"
+
+YouGov_DATA$Julia_Condition_FINAL_2 <- as.factor(YouGov_DATA$Julia_Condition_FINAL_2)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ Julia_Condition_FINAL_2   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ Julia_Condition_FINAL_2    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ Julia_Condition_FINAL_2   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ Julia_Condition_FINAL_2   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ Julia_Condition_FINAL_2    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ Julia_Condition_FINAL_2    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+```
+```{r Menthol experiment}
+YouGov_DATA$menthol_treat <- as.factor(YouGov_DATA$menthol_treat)
+
+YouGov_DATA$menthol_treat_2[YouGov_DATA$menthol_treat=="2"] <- "0"
+YouGov_DATA$menthol_treat_2[YouGov_DATA$menthol_treat=="1"] <- "1"
+
+YouGov_DATA$menthol_treat_2 <- as.factor(YouGov_DATA$menthol_treat_2)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ menthol_treat_2   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ menthol_treat_2    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ menthol_treat_2   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ menthol_treat_2   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ menthol_treat_2    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ menthol_treat_2    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+```
+#Cigarette Use
+```{r Cumulative exposure}
+YouGov_DATA$cigarette_use_2[YouGov_DATA$cigarette_use=="1"] <- "1"
+YouGov_DATA$cigarette_use_2[YouGov_DATA$cigarette_use=="2"] <- "0"
+
+YouGov_DATA$cigarette_use_2 <- as.factor(YouGov_DATA$cigarette_use_2)
+
+#Lifetime exposure
+fit.glm.use <-svyglm(cigarette_use_2 ~ Lifetime_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Past 30-day exposure
+fit.glm.use <-svyglm(cigarette_use_2 ~ Current_ecig_marketing_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Individual exposure}
+#Social media
+fit.glm.use <-svyglm(cigarette_use_2 ~ source  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Websites
+fit.glm.use <-svyglm(cigarette_use_2 ~ direct_exposure_website  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Email
+fit.glm.use <-svyglm(cigarette_use_2 ~ direct_exposure_email  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Opt-in Newsletters
+fit.glm.use <-svyglm(cigarette_use_2 ~ direct_exposure_newsletter_30  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+
+
+```
+```{r Marketing stimuli}
+#Image-based
+fit.glm.use <-svyglm(cigarette_use_2 ~ Imagebased_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Audiovisual
+fit.glm.use <-svyglm(cigarette_use_2 ~ Audiovisual_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Overall
+fit.glm.use <-svyglm(cigarette_use_2 ~ Any_stimuli_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+
+
+```
+```{r Scripted entertainment}
+#Scripted
+fit.glm.use <-svyglm(cigarette_use_2 ~ Film_ecig_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Products and brands}
+#Products overall
+fit.glm.use <-svyglm(cigarette_use_2 ~ ecig_product_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Brands overall
+fit.glm.use <-svyglm(cigarette_use_2 ~ ecig_brand_exposure  +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+```
+#Products and Brands
+```{r Product - older generation}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ product_type_3   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ product_type_3    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ product_type_3   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ product_type_3    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ product_type_3   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ product_type_3    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+```
+```{r Product - disposable}
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ product_type_4   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ product_type_4    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ product_type_4   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ product_type_4    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ product_type_4   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ product_type_4    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+```
+```{r JUUL}
+#JUUL
+YouGov_DATA$brand_2 <- as.numeric(YouGov_DATA$brand_2)
+YouGov_DATA$brand_2_new[YouGov_DATA$brand_2=="1"] <- "1"
+YouGov_DATA$brand_2_new[YouGov_DATA$brand_2=="2"] <- "0"
+YouGov_DATA$brand_2_new <- as.factor(YouGov_DATA$brand_2_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_2_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_2_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_2_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_2_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_2_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_2_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Puff Bar}
+#Puff Bar
+YouGov_DATA$brand_3 <- as.numeric(YouGov_DATA$brand_3)
+YouGov_DATA$brand_3_new[YouGov_DATA$brand_3=="1"] <- "1"
+YouGov_DATA$brand_3_new[YouGov_DATA$brand_3=="2"] <- "0"
+YouGov_DATA$brand_3_new <- as.factor(YouGov_DATA$brand_3_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_3_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_3_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_3_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_3_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_3_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_3_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Blu}
+#Blu
+YouGov_DATA$brand_4 <- as.numeric(YouGov_DATA$brand_4)
+YouGov_DATA$brand_4_new[YouGov_DATA$brand_4=="1"] <- "1"
+YouGov_DATA$brand_4_new[YouGov_DATA$brand_4=="2"] <- "0"
+YouGov_DATA$brand_4_new <- as.factor(YouGov_DATA$brand_4_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_4_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_4_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_4_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_4_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_4_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_4_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r NJOY}
+#NJOY
+YouGov_DATA$brand_5 <- as.numeric(YouGov_DATA$brand_5)
+YouGov_DATA$brand_5_new[YouGov_DATA$brand_5=="1"] <- "1"
+YouGov_DATA$brand_5_new[YouGov_DATA$brand_5=="2"] <- "0"
+YouGov_DATA$brand_5_new <- as.factor(YouGov_DATA$brand_5_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_5_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_5_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_5_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_5_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_5_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_5_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Vuse}
+#Vuse
+YouGov_DATA$brand_6 <- as.numeric(YouGov_DATA$brand_6)
+YouGov_DATA$brand_6_new[YouGov_DATA$brand_6=="1"] <- "1"
+YouGov_DATA$brand_6_new[YouGov_DATA$brand_6=="2"] <- "0"
+YouGov_DATA$brand_6_new <- as.factor(YouGov_DATA$brand_6_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_6_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_6_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_6_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_6_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_6_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_6_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Innokin}
+#Innokin
+YouGov_DATA$brand_7 <- as.numeric(YouGov_DATA$brand_7)
+YouGov_DATA$brand_7_new[YouGov_DATA$brand_7=="1"] <- "1"
+YouGov_DATA$brand_7_new[YouGov_DATA$brand_7=="2"] <- "0"
+YouGov_DATA$brand_7_new <- as.factor(YouGov_DATA$brand_7_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_7_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_7_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_7_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_7_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_7_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_7_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Stogz}
+#Stogz
+YouGov_DATA$brand_8 <- as.numeric(YouGov_DATA$brand_8)
+YouGov_DATA$brand_8_new[YouGov_DATA$brand_8=="1"] <- "1"
+YouGov_DATA$brand_8_new[YouGov_DATA$brand_8=="2"] <- "0"
+YouGov_DATA$brand_8_new <- as.factor(YouGov_DATA$brand_8_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_8_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_8_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_8_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_8_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_8_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_8_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Yours Truly CBD}
+#Yours Truly CBD
+YouGov_DATA$brand_9 <- as.numeric(YouGov_DATA$brand_9)
+YouGov_DATA$brand_9_new[YouGov_DATA$brand_9=="1"] <- "1"
+YouGov_DATA$brand_9_new[YouGov_DATA$brand_9=="2"] <- "0"
+YouGov_DATA$brand_9_new <- as.factor(YouGov_DATA$brand_9_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_9_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_9_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_9_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_9_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_9_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_9_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Vape Shop}
+#Vape Shop
+YouGov_DATA$brand_10 <- as.numeric(YouGov_DATA$brand_10)
+YouGov_DATA$brand_10_new[YouGov_DATA$brand_10=="1"] <- "1"
+YouGov_DATA$brand_10_new[YouGov_DATA$brand_10=="2"] <- "0"
+YouGov_DATA$brand_10_new <- as.factor(YouGov_DATA$brand_10_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_10_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_10_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_10_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_10_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_10_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_10_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r V for Vape}
+#V for Vape
+YouGov_DATA$brand_11 <- as.numeric(YouGov_DATA$brand_11)
+YouGov_DATA$brand_11_new[YouGov_DATA$brand_11=="1"] <- "1"
+YouGov_DATA$brand_11_new[YouGov_DATA$brand_11=="2"] <- "0"
+YouGov_DATA$brand_11_new <- as.factor(YouGov_DATA$brand_11_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_11_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_11_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_11_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_11_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_11_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_11_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Vape Juice Depot}
+#Vape Juice Depot
+YouGov_DATA$brand_14 <- as.numeric(YouGov_DATA$brand_14)
+YouGov_DATA$brand_14_new[YouGov_DATA$brand_14=="1"] <- "1"
+YouGov_DATA$brand_14_new[YouGov_DATA$brand_14=="2"] <- "0"
+YouGov_DATA$brand_14_new <- as.factor(YouGov_DATA$brand_14_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_14_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_14_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_14_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_14_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_14_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_14_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Vapor Empire}
+#Vape Juice Depot
+YouGov_DATA$brand_15 <- as.numeric(YouGov_DATA$brand_15)
+YouGov_DATA$brand_15_new[YouGov_DATA$brand_15=="1"] <- "1"
+YouGov_DATA$brand_15_new[YouGov_DATA$brand_15=="2"] <- "0"
+YouGov_DATA$brand_15_new <- as.factor(YouGov_DATA$brand_15_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_15_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_15_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_15_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_15_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_15_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_15_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Ziggy}
+#Ziggy
+YouGov_DATA$brand_20 <- as.numeric(YouGov_DATA$brand_20)
+YouGov_DATA$brand_20_new[YouGov_DATA$brand_20=="1"] <- "1"
+YouGov_DATA$brand_20_new[YouGov_DATA$brand_20=="2"] <- "0"
+YouGov_DATA$brand_20_new <- as.factor(YouGov_DATA$brand_20_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_20_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_20_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_20_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_20_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_20_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_20_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Vapor Den}
+#Vapor Den
+YouGov_DATA$brand_21 <- as.numeric(YouGov_DATA$brand_21)
+YouGov_DATA$brand_21_new[YouGov_DATA$brand_21=="1"] <- "1"
+YouGov_DATA$brand_21_new[YouGov_DATA$brand_21=="2"] <- "0"
+YouGov_DATA$brand_21_new <- as.factor(YouGov_DATA$brand_21_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_21_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_21_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_21_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_21_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_21_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_21_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r C3}
+#C3
+YouGov_DATA$brand_23 <- as.numeric(YouGov_DATA$brand_23)
+YouGov_DATA$brand_23_new[YouGov_DATA$brand_23=="1"] <- "1"
+YouGov_DATA$brand_23_new[YouGov_DATA$brand_23=="2"] <- "0"
+YouGov_DATA$brand_23_new <- as.factor(YouGov_DATA$brand_23_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_23_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_23_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_23_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_23_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_23_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_23_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r V Spot}
+#V Spot
+YouGov_DATA$brand_24 <- as.numeric(YouGov_DATA$brand_24)
+YouGov_DATA$brand_24_new[YouGov_DATA$brand_24=="1"] <- "1"
+YouGov_DATA$brand_24_new[YouGov_DATA$brand_24=="2"] <- "0"
+YouGov_DATA$brand_24_new <- as.factor(YouGov_DATA$brand_24_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_24_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_24_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_24_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_24_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_24_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_24_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Stay Vaped}
+#Stay Vaped
+YouGov_DATA$brand_25 <- as.numeric(YouGov_DATA$brand_25)
+YouGov_DATA$brand_25_new[YouGov_DATA$brand_25=="1"] <- "1"
+YouGov_DATA$brand_25_new[YouGov_DATA$brand_25=="2"] <- "0"
+YouGov_DATA$brand_25_new <- as.factor(YouGov_DATA$brand_25_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_25_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_25_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_25_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_25_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_25_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_25_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+```{r Smokeless Vape}
+#Smokeless Vape
+YouGov_DATA$brand_26 <- as.numeric(YouGov_DATA$brand_26)
+YouGov_DATA$brand_26_new[YouGov_DATA$brand_26=="1"] <- "1"
+YouGov_DATA$brand_26_new[YouGov_DATA$brand_26=="2"] <- "0"
+YouGov_DATA$brand_26_new <- as.factor(YouGov_DATA$brand_26_new)
+
+##Benefits
+fit.glm.ben <-svyglm(Benefits_recoded ~ brand_26_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.ben)
+exp(cbind(OR = coef(fit.glm.ben), confint(fit.glm.ben)))
+
+#Appeal
+fit.glm.appeal <-svyglm(Vape_Appeal ~ brand_26_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.appeal)
+exp(cbind(OR = coef(fit.glm.appeal), confint(fit.glm.appeal)))
+
+##Purchase intentions
+fit.glm.buy <-svyglm(Vape_Buy ~ brand_26_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.buy)
+exp(cbind(OR = coef(fit.glm.buy), confint(fit.glm.buy)))
+
+#Susceptibility to use
+fit.glm.di <-svyglm(Sus_Di ~ brand_26_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.di)
+exp(cbind(OR = coef(fit.glm.di), confint(fit.glm.di)))
+
+#Current use
+fit.glm.use <-svyglm(Current_vape_use ~ brand_26_new   +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+#Lifetime use
+fit.glm.use <-svyglm(Lifetime_vape_use ~ brand_26_new    +
+                      Current_Substance_Use +
+                      Offline_ecig_marketing +
+                      SM_DailyUse +
+                      gender_identity_NEW +
+                      Age,
+                      design=my_design,
+                      family=quasibinomial(link=logit),
+                      na.action=na.omit)
+summary(fit.glm.use)
+exp(cbind(OR = coef(fit.glm.use), confint(fit.glm.use)))
+
+
+```
+
+
+#Jon Request
+```{r Jon Request}
+# 2-Way Frequency Table
+attach(YouGov_DATA)
+mytable <- table(gender_identity,sexual_orientation) # A will be rows, B will be columns
+mytable # print table
+
+mytable <- table(Ecig_stimuli_recognition,sexual_orientation) # A will be rows, B will be columns
+mytable # print table
+
+mytable <- table(Ecig_stimuli_recognition,Age) # A will be rows, B will be columns
+mytable # print table
+
+
+
+
+
+
+```
+
+
+
+
