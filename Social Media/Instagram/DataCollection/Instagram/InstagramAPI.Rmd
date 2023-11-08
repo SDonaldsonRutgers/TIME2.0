@@ -1,0 +1,887 @@
+---
+title: "TIME Project - Instagram Data Collection"
+author: "Scott I. Donaldson, PhD"
+date: "6/14/2021"
+output: 
+  html_notebook: 
+    toc: yes
+editor_options: 
+  chunk_output_type: inline
+---
+
+# Application Programming Interface
+
+Download the Real Instagram Package package and connect to the unofficial Instagram API.
+
+```{r Packages}
+setwd("~/Desktop/USC/TIME/R/TIME")
+library(Rinstapkg)
+library(tidyverse)
+library(readxl)
+library(knitr)
+```
+
+```{r Instagram API}
+#Rinstapkg Authentication
+ig_auth(username = "scott_donaldson_phd",
+        password = "Big5Air6$")
+
+```
+
+# Social Media Analytics
+
+Create a series of search terms to identify appropriate hashtags within each search. For TIME, we will probably want to create a selection criteria of hashtags that have N number of posts.
+
+# Search Tags
+
+```{r Juul Search Tags, echo=TRUE}
+# Search Tags
+JuulSearch      <- ig_search_tags("swisher")
+```
+
+# Juul
+### Hashtags for Juul {style="color: blue"}
+
+1.  juulpods
+
+2.  juulmemes
+
+3.  juulgang
+
+4.  juulvapor
+
+5.  juuling
+
+6.  juultricks
+
+7.  juulcentral
+
+8.  juullife
+
+9.  juulpod
+
+10. juuls
+
+#### Juulpods {style="color: purple"}
+
+Search the feed for the juulpods hashtag
+
+```{r Get juulpods hashtag, echo=TRUE}
+Juulpods <- ig_get_hashtag_feed("juulpods")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose Juulpods lists and create final df, echo=TRUE}
+
+# Decompose list variables in the data
+Juulpods_caption <- items_to_tidy_df(Juulpods$caption)
+Juulpods_user    <- items_to_tidy_df(Juulpods$user)
+
+JuulPods_FinalDF <- cbind(Juulpods,
+                          Juulpods_caption,
+                          Juulpods_user)
+
+                        
+```
+
+```{r Subset final juulpods df}
+JuulPods_FinalDF <- JuulPods_FinalDF %>% select(code,
+                                                username,
+                                                taken_at,
+                                                text,
+                                                comment_count,
+                                                like_count,
+                                                view_count)
+
+JuulPods_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+JuulPods_FinalDF$URLLINK <- paste(JuulPods_FinalDF$Insta,JuulPods_FinalDF$code,
+                                sep = "")
+JuulPods_FinalDF <- JuulPods_FinalDF %>% select(-Insta,
+                                                  -code)
+```
+
+```{r Date variable juulpods}
+#Clean Date Variable
+JuulPods_FinalDF$taken_at <- as_epoch(JuulPods_FinalDF$taken_at)
+JuulPods_FinalDF$taken_at <-as.Date(as.POSIXct(JuulPods_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables juul pods}
+#Rename Variables
+JuulPods_FinalDF <- JuulPods_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for juulpods, echo=TRUE}
+write_csv(JuulPods_FinalDF, "JuulPods_FinalDF.csv")
+```
+
+#### Juulmemes {style="color: purple"}
+
+Search the feed for the juulmemes hashtag
+
+```{r Get juulmemes hashtag, echo=TRUE}
+juulmemes <- ig_get_hashtag_feed("juulmemes")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose juulmemes lists and create final df, echo=TRUE}
+
+# Decompose list variables in the data
+juulmemes_caption <- items_to_tidy_df(juulmemes$caption)
+juulmemes_user    <- items_to_tidy_df(juulmemes$user)
+
+juulmemes_FinalDF <- cbind(juulmemes,
+                          juulmemes_caption,
+                          juulmemes_user)
+
+
+```
+
+
+```{r Subset final juulmemes df}
+juulmemes_FinalDF <- juulmemes_FinalDF %>% select(code,
+                                                username,
+                                                taken_at,
+                                                text,
+                                                comment_count,
+                                                like_count,
+                                                view_count,
+                                                play_count)
+
+juulmemes_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+juulmemes_FinalDF$URLLINK <- paste(juulmemes_FinalDF$Insta,juulmemes_FinalDF$code,
+                                sep = "")
+juulmemes_FinalDF <- juulmemes_FinalDF %>% select(-Insta,
+                                                  -code)
+```
+
+```{r Date variable juulmemes}
+#Clean Date Variable
+juulmemes_FinalDF$taken_at <- as_epoch(juulmemes_FinalDF$taken_at)
+juulmemes_FinalDF$taken_at <-as.Date(as.POSIXct(juulmemes_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables juulmemes}
+#Rename Variables
+juulmemes_FinalDF <- juulmemes_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for juulmemes, echo=TRUE}
+write_csv(juulmemes_FinalDF, "juulmemes_FinalDF.csv")
+```
+
+
+#### Juulgang {style="color: purple"}
+
+Search the feed for the juulgang hashtag
+
+```{r Get juulgang hashtag, echo=TRUE}
+juulgang <- ig_get_hashtag_feed("juulgang")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose juulgang lists and create final df, echo=TRUE}
+# Decompose list variables in the data
+juulgang_caption <- items_to_tidy_df(juulgang$caption)
+juulgang_user    <- items_to_tidy_df(juulgang$user)
+
+juulgang_FinalDF <- cbind(juulgang,
+                          juulgang_caption,
+                          juulgang_user)
+```
+
+
+```{r Subset final juulgang df}
+juulgang_FinalDF <- juulgang_FinalDF %>% select(code,
+                                                username,
+                                                taken_at,
+                                                text,
+                                                comment_count,
+                                                like_count,
+                                                view_count,
+                                                play_count)
+
+juulgang_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+juulgang_FinalDF$URLLINK <- paste(juulgang_FinalDF$Insta,juulgang_FinalDF$code,
+                                sep = "")
+juulgang_FinalDF <- juulgang_FinalDF %>% select(-Insta,
+                                                  -code)
+```
+
+```{r Date variable juulgang}
+#Clean Date Variable
+juulgang_FinalDF$taken_at <- as_epoch(juulgang_FinalDF$taken_at)
+juulgang_FinalDF$taken_at <-as.Date(as.POSIXct(juulgang_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables juulgang}
+#Rename Variables
+juulgang_FinalDF <- juulgang_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for juulgang, echo=TRUE}
+write_csv(juulgang_FinalDF, "juulgang_FinalDF.csv")
+```
+
+#### Juulvapor {style="color: purple"}
+
+Search the feed for the juulvapor hashtag
+
+```{r Get juulvapor hashtag, echo=TRUE}
+juulvapor <- ig_get_hashtag_feed("juulvapor")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose juulvapor lists and create final df, echo=TRUE}
+
+# Decompose list variables in the data
+juulvapor_caption <- items_to_tidy_df(juulvapor$caption)
+juulvapor_user    <- items_to_tidy_df(juulvapor$user)
+
+juulvapor_FinalDF <- cbind(juulvapor,
+                          juulvapor_caption,
+                          juulvapor_user)
+
+```
+
+```{r Subset final juulvapor df}
+juulvapor_FinalDF <- juulvapor_FinalDF %>% select(code,
+                                                username,
+                                                taken_at,
+                                                text,
+                                                comment_count,
+                                                like_count,
+                                                view_count,
+                                                play_count)
+
+juulvapor_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+juulvapor_FinalDF$URLLINK <- paste(juulvapor_FinalDF$Insta,juulvapor_FinalDF$code,
+                                sep = "")
+juulvapor_FinalDF <- juulvapor_FinalDF %>% select(-Insta,
+                                                  -code)
+```
+
+```{r Date variable juulvapor}
+#Clean Date Variable
+juulvapor_FinalDF$taken_at <- as_epoch(juulvapor_FinalDF$taken_at)
+juulvapor_FinalDF$taken_at <-as.Date(as.POSIXct(juulvapor_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables juulvapor}
+#Rename Variables
+juulvapor_FinalDF <- juulvapor_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for juulvapor, echo=TRUE}
+write_csv(juulvapor_FinalDF, "juulvapor_FinalDF.csv")
+```
+
+#### Juuling {style="color: purple"}
+
+Search the feed for the juuling hashtag
+
+```{r Get juuling hashtag, echo=TRUE}
+juuling <- ig_get_hashtag_feed("juuling")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose juuling lists and create final df, echo=TRUE}
+
+# Decompose list variables in the data
+juuling_caption <- items_to_tidy_df(juuling$caption)
+juuling_user    <- items_to_tidy_df(juuling$user)
+
+juuling_FinalDF <- cbind(juuling,
+                          juuling_caption,
+                          juuling_user)
+
+```
+
+```{r Subset final juuling df}
+juuling_FinalDF <- juuling_FinalDF %>% select(code,
+                                              username,
+                                              taken_at,
+                                              text,
+                                              comment_count,
+                                              like_count,
+                                              view_count,
+                                              play_count)
+
+juuling_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+juuling_FinalDF$URLLINK <- paste(juuling_FinalDF$Insta,juuling_FinalDF$code,
+                                sep = "")
+juuling_FinalDF <- juuling_FinalDF %>% select(-Insta,
+                                              -code)
+```
+
+```{r Date variable juuling}
+#Clean Date Variable
+juuling_FinalDF$taken_at <- as_epoch(juuling_FinalDF$taken_at)
+juuling_FinalDF$taken_at <-as.Date(as.POSIXct(juuling_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables juuling}
+#Rename Variables
+juuling_FinalDF <- juuling_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for juuling, echo=TRUE}
+write_csv(juuling_FinalDF, "juuling_FinalDF.csv")
+
+```
+
+#### Juultricks {style="color: purple"}
+
+Search the feed for the juultricks hashtag
+
+```{r Get juultricks hashtag, echo=TRUE}
+juultricks <- ig_get_hashtag_feed("juultricks")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose juultricks lists and create final df, echo=TRUE}
+
+# Decompose list variables in the data
+juultricks_caption <- items_to_tidy_df(juultricks$caption)
+juultricks_user    <- items_to_tidy_df(juultricks$user)
+
+juultricks_FinalDF <- cbind(juultricks,
+                          juultricks_caption,
+                          juultricks_user)
+
+```
+
+```{r Subset final juultricks df}
+juultricks_FinalDF <- juultricks_FinalDF %>% select(code,
+                                                username,
+                                                taken_at,
+                                                text,
+                                                comment_count,
+                                                like_count,
+                                                view_count,
+                                                play_count)
+
+juultricks_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+juultricks_FinalDF$URLLINK <- paste(juultricks_FinalDF$Insta,juultricks_FinalDF$code,
+                                sep = "")
+juultricks_FinalDF <- juultricks_FinalDF %>% select(-Insta,
+                                              -code)
+```
+
+```{r Date variable juultricks}
+#Clean Date Variable
+juultricks_FinalDF$taken_at <- as_epoch(juultricks_FinalDF$taken_at)
+juultricks_FinalDF$taken_at <-as.Date(as.POSIXct(juultricks_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables juultricks}
+#Rename Variables
+juultricks_FinalDF <- juultricks_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for juultricks, echo=TRUE}
+write_csv(juultricks_FinalDF, "juultricks_FinalDF.csv")
+
+```
+
+#### Juulcentral {style="color: purple"}
+
+Search the feed for the juulcentral hashtag
+
+```{r Get juulcentral hashtag, echo=TRUE}
+juulcentral <- ig_get_hashtag_feed("juulcentral")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose juulcentral lists and create final df, echo=TRUE}
+
+# Decompose list variables in the data
+juulcentral_caption <- items_to_tidy_df(juulcentral$caption)
+juulcentral_user    <- items_to_tidy_df(juulcentral$user)
+
+juulcentral_FinalDF <- cbind(juulcentral,
+                          juulcentral_caption,
+                          juulcentral_user)
+
+```
+
+```{r Subset final juulcentral df}
+juulcentral_FinalDF <- juulcentral_FinalDF %>% select(code,
+                                                username,
+                                                taken_at,
+                                                text,
+                                                comment_count,
+                                                like_count,
+                                                view_count)
+                                                #play_count
+
+juulcentral_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+juulcentral_FinalDF$URLLINK <- paste(juulcentral_FinalDF$Insta,juulcentral_FinalDF$code,
+                                sep = "")
+juulcentral_FinalDF <- juulcentral_FinalDF %>% select(-Insta,
+                                              -code)
+```
+
+```{r Date variable juulcentral}
+#Clean Date Variable
+juulcentral_FinalDF$taken_at <- as_epoch(juulcentral_FinalDF$taken_at)
+juulcentral_FinalDF$taken_at <-as.Date(as.POSIXct(juulcentral_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables juulcentral}
+#Rename Variables
+juulcentral_FinalDF <- juulcentral_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for juulcentral, echo=TRUE}
+write_csv(juulcentral_FinalDF, "juulcentral_FinalDF.csv")
+```
+
+#### Juullife {style="color: purple"}
+
+Search the feed for the juullife hashtag
+
+```{r Get juullife hashtag, echo=TRUE}
+juullife <- ig_get_hashtag_feed("juullife")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose juullife lists and create final df, echo=TRUE}
+
+# Decompose list variables in the data
+juullife_caption <- items_to_tidy_df(juullife$caption)
+juullife_user    <- items_to_tidy_df(juullife$user)
+
+juullife_FinalDF <- cbind(juullife,
+                          juullife_caption,
+                          juullife_user)
+
+```
+
+```{r Subset final juullife df}
+juullife_FinalDF <- juullife_FinalDF %>% select(code,
+                                                username,
+                                                taken_at,
+                                                text,
+                                                comment_count,
+                                                like_count,
+                                                view_count,
+                                                play_count)
+
+juullife_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+juullife_FinalDF$URLLINK <- paste(juullife_FinalDF$Insta,juullife_FinalDF$code,
+                                sep = "")
+juullife_FinalDF <- juullife_FinalDF %>% select(-Insta,
+                                              -code)
+```
+
+```{r Date variable juullife}
+#Clean Date Variable
+juullife_FinalDF$taken_at <- as_epoch(juullife_FinalDF$taken_at)
+juullife_FinalDF$taken_at <-as.Date(as.POSIXct(juullife_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables juullife}
+#Rename Variables
+juullife_FinalDF <- juullife_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for juullife, echo=TRUE}
+write_csv(juullife_FinalDF, "juullife_FinalDF.csv")
+```
+
+#### Juulpod{style="color: purple"}
+
+Search the feed for the juulpod hashtag
+
+```{r Get juulpod hashtag, echo=TRUE}
+juulpod <- ig_get_hashtag_feed("juulpod")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose juulpod lists and create final df, echo=TRUE}
+
+# Decompose list variables in the data
+juulpod_caption <- items_to_tidy_df(juulpod$caption)
+juulpod_user    <- items_to_tidy_df(juulpod$user)
+
+juulpod_FinalDF <- cbind(juulpod,
+                          juulpod_caption,
+                          juulpod_user)
+
+```
+
+```{r Subset final juulpod df}
+juulpod_FinalDF <- juulpod_FinalDF %>% select(code,
+                                              username,
+                                              taken_at,
+                                              text,
+                                              comment_count,
+                                              like_count,
+                                              view_count)
+
+juulpod_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+juulpod_FinalDF$URLLINK <- paste(juulpod_FinalDF$Insta,juulpod_FinalDF$code,
+                                sep = "")
+juulpod_FinalDF <- juulpod_FinalDF %>% select(-Insta,
+                                              -code)
+
+```
+
+```{r Date variable juulpod}
+#Clean Date Variable
+juulpod_FinalDF$taken_at <- as_epoch(juulpod_FinalDF$taken_at)
+juulpod_FinalDF$taken_at <-as.Date(as.POSIXct(juulpod_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables juulpod}
+#Rename Variables
+juulpod_FinalDF <- juulpod_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for juulpod, echo=TRUE}
+write_csv(juulpod_FinalDF, "juulpod_FinalDF.csv")
+```
+
+
+#### Juuls{style="color: purple"}
+
+Search the feed for the juuls hashtag
+
+```{r Get juuls hashtag, echo=TRUE}
+juuls <- ig_get_hashtag_feed("juuls")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose juuls lists and create final df, echo=TRUE}
+# Decompose list variables in the data
+juuls_caption <- items_to_tidy_df(juuls$caption)
+juuls_user    <- items_to_tidy_df(juuls$user)
+
+juuls_FinalDF <- cbind(juuls,
+                          juuls_caption,
+                          juuls_user)
+
+```
+
+```{r Subset final juuls df}
+juuls_FinalDF <- juuls_FinalDF %>% select(code,
+                                          username,
+                                          taken_at,
+                                          text,
+                                          comment_count,
+                                          like_count,
+                                          view_count,
+                                          play_count)
+
+juuls_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+juuls_FinalDF$URLLINK <- paste(juuls_FinalDF$Insta,juuls_FinalDF$code,
+                                sep = "")
+juuls_FinalDF <- juuls_FinalDF %>% select(-Insta,
+                                              -code)
+```
+
+```{r Date variable juuls}
+#Clean Date Variable
+juuls_FinalDF$taken_at <- as_epoch(juuls_FinalDF$taken_at)
+juuls_FinalDF$taken_at <-as.Date(as.POSIXct(juuls_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables juuls}
+#Rename Variables
+juuls_FinalDF <- juuls_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for juuls, echo=TRUE}
+write_csv(juuls_FinalDF, "juuls.csv")
+```
+
+
+# Ejuice
+#### ejuice{style="color: purple"}
+
+Search the feed for the ejuice hashtag
+
+```{r Get ejuice hashtag, echo=TRUE}
+ejuice <- ig_get_hashtag_feed("ejuice")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose ejuice lists and create final df, echo=TRUE}
+# Decompose list variables in the data
+ejuice_caption <- items_to_tidy_df(ejuice$caption)
+ejuice_user    <- items_to_tidy_df(ejuice$user)
+
+ejuice_FinalDF <- cbind(ejuice,
+                          ejuice_caption,
+                          ejuice_user)
+
+```
+
+```{r Subset final ejuice df}
+ejuice_FinalDF <- ejuice_FinalDF %>% select(code,
+                                            username,
+                                            taken_at,
+                                            text,
+                                            comment_count,
+                                            like_count,
+                                            view_count,
+                                            play_count)
+
+ejuice_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+ejuice_FinalDF$URLLINK <- paste(ejuice_FinalDF$Insta,ejuice_FinalDF$code,
+                                sep = "")
+ejuice_FinalDF <- ejuice_FinalDF %>% select(-Insta,
+                                              -code)
+```
+
+```{r Date variable ejuice}
+#Clean Date Variable
+ejuice_FinalDF$taken_at <- as_epoch(ejuice_FinalDF$taken_at)
+ejuice_FinalDF$taken_at <-as.Date(as.POSIXct(ejuice_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables ejuice}
+#Rename Variables
+ejuice_FinalDF <- ejuice_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for ejuice, echo=TRUE}
+write_csv(ejuice_FinalDF, "ejuice_FinalDF.csv")
+
+```
+
+
+# eliquid
+#### eliquid{style="color: purple"}
+
+Search the feed for the eliquid hashtag
+
+```{r Get eliquid hashtag, echo=TRUE}
+eliquid <- ig_get_hashtag_feed("eliquid")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose eliquid lists and create final df, echo=TRUE}
+
+# Decompose list variables in the data
+eliquid_caption <- items_to_tidy_df(eliquid$caption)
+eliquid_user    <- items_to_tidy_df(eliquid$user)
+
+eliquid_FinalDF <- cbind(eliquid,
+                          eliquid_caption,
+                          eliquid_user)
+
+```
+
+```{r Subset final eliquid df}
+eliquid_FinalDF <- eliquid_FinalDF %>% select(code,
+                                              username,
+                                              taken_at,
+                                              text,
+                                              comment_count,
+                                              like_count,
+                                              view_count,
+                                              play_count)
+
+eliquid_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+eliquid_FinalDF$URLLINK <- paste(eliquid_FinalDF$Insta,eliquid_FinalDF$code,
+                                sep = "")
+eliquid_FinalDF <- eliquid_FinalDF %>% select(-Insta,
+                                              -code)
+```
+
+```{r Date variable eliquid}
+#Clean Date Variable
+eliquid_FinalDF$taken_at <- as_epoch(eliquid_FinalDF$taken_at)
+eliquid_FinalDF$taken_at <-as.Date(as.POSIXct(eliquid_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables eliquid}
+#Rename Variables
+eliquid_FinalDF <- eliquid_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for eliquid, echo=TRUE}
+write_csv(eliquid_FinalDF, "eliquid_FinalDF.csv")
+```
+
+# swisher
+#### swisher{style="color: purple"}
+
+Search the feed for the swisher hashtag
+
+```{r Get swisher hashtag, echo=TRUE}
+swisher <- ig_get_hashtag_feed("swisher")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose swisher lists and create final df, echo=TRUE}
+# Decompose list variables in the data
+swisher_caption <- items_to_tidy_df(swisher$caption)
+swisher_user    <- items_to_tidy_df(swisher$user)
+
+swisher_FinalDF <- cbind(swisher,
+                          swisher_caption,
+                          swisher_user)
+
+```
+
+
+```{r Subset final swisher df}
+swisher_FinalDF <- swisher_FinalDF %>% select(code,
+                                              username,
+                                              taken_at,
+                                              text,
+                                              comment_count,
+                                              like_count,
+                                              view_count,
+                                              play_count)
+
+swisher_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+swisher_FinalDF$URLLINK <- paste(swisher_FinalDF$Insta,swisher_FinalDF$code,
+                                sep = "")
+swisher_FinalDF <- swisher_FinalDF %>% select(-Insta,
+                                              -code)
+```
+
+```{r Date variable swisher}
+#Clean Date Variable
+swisher_FinalDF$taken_at <- as_epoch(swisher_FinalDF$taken_at)
+swisher_FinalDF$taken_at <-as.Date(as.POSIXct(swisher_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables swisher}
+#Rename Variables
+swisher_FinalDF <- swisher_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for swisher, echo=TRUE}
+write_csv(swisher_FinalDF, "swisher_FinalDF.csv")
+```
+
+# backwoods
+#### backwoods{style="color: purple"}
+
+Search the feed for the backwoods hashtag
+
+```{r Get backwoods hashtag, echo=TRUE}
+backwoods <- ig_get_hashtag_feed("backwoods")
+```
+
+The caption and user variables are in a deeply nested list. Use the items_to_tidy_df function to flatten the lists. Then, create final df.
+
+```{r Decompose backwoods lists and create final df, echo=TRUE}
+
+# Decompose list variables in the data
+backwoods_caption <- items_to_tidy_df(backwoods$caption)
+backwoods_user    <- items_to_tidy_df(backwoods$user)
+
+backwoods_FinalDF <-merge(backwoods, backwoods_caption, by = 0, all = TRUE)[-1]
+
+backwoods_FinalDF <-merge(backwoods_FinalDF, backwoods_user, by = 0, all = TRUE)[-1]
+
+```
+
+
+```{r Subset final backwoods df}
+backwoods_FinalDF <- backwoods_FinalDF %>% select(code,
+                                                username,
+                                                taken_at,
+                                                text,
+                                                comment_count,
+                                                like_count,
+                                                view_count,
+                                                play_count)
+
+backwoods_FinalDF$Insta <- as.character("https://www.instagram.com/p/")
+backwoods_FinalDF$URLLINK <- paste(backwoods_FinalDF$Insta,backwoods_FinalDF$code,
+                                sep = "")
+backwoods_FinalDF <- backwoods_FinalDF %>% select(-Insta,
+                                              -code)
+```
+
+```{r Date variable backwoods}
+#Clean Date Variable
+backwoods_FinalDF$taken_at <- as_epoch(backwoods_FinalDF$taken_at)
+backwoods_FinalDF$taken_at <-as.Date(as.POSIXct(backwoods_FinalDF$taken_at, origin="1970-01-01"))
+```
+
+```{r Rename variables backwoods}
+#Rename Variables
+backwoods_FinalDF <- backwoods_FinalDF %>%
+                    rename(caption = text,
+                           date    = taken_at) 
+```
+
+Write CSV
+
+```{r Write CSV for backwoods, echo=TRUE}
+write_csv(backwoods_FinalDF, "backwoods_FinalDF.csv")
+```
+
