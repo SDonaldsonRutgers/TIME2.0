@@ -1,0 +1,211 @@
+---
+title: "YouGov_HealthEcig_Experiment"
+output: 
+#A code underlying the manuscript "The impact of Instagram and TikTok influencer marketing on perceptions of e-cigarettes and perceptions of influencers in young adults: a randomized survey-based experiment"
+#Vassey J, Vogel EA, Unger JB, et al. Tob Control 2025;:1–8. doi: tc-2024-059021
+date: "2025-02-05"
+---
+
+
+```{r harm perceptions and susceptibility}
+
+#install.packages("lme4")
+#install.packages("ordinal")
+#install.packages("broom.mixed")
+#install.packages("dplyr")
+
+
+#variable names:
+
+#Exposure:
+#Conditions - experimental conditions (Treatment vs. Control)
+
+#Outcomes:
+#c_q2_binary1 - harm perception (as reported in Table 2)
+#c_q2_binary - harm perception (as reported in Supplementary Table 3)
+#c_q2_reverse -  harm perception (as reported in Supplementary Table 4)
+#Sus_Di - Susceptibility to e-cigarette use (as reported in Table 2)
+#Sus_Di2 - Susceptibility to e-cigarette use (as reported in Supplementary Table 3)
+#c_q4_binary - intentions to use e-cigarettes if a friend offers (as reported in Supplementary Table 5)
+#c_q4_binary - intentions to use e-cigarettes soon (as reported in Supplementary Table 5)
+#c_q4_binary - curiosity about e-cigarette use (as reported in Supplementary Table 5)
+
+#Moderator:
+#Influencer_score - influencer credibility perception score
+#Influencer_score_rescale - rescaled influencer credibility perception score
+
+#Covariates:
+#race_recode - race/ethnicity
+#sex - sex assigned at birth (binary, 1: female; 2: male)
+#sex_orient_recode - sexual orientation (binary, 1: heterosexual; 0: non-heterosexual)
+#Age - Age (binary: 21+ vs. under 21)
+#SM_DailyUse - Use of Social Media (binary, Yes: daily vs. No: less frequently/none, combined)
+#ecigarette_mult_4 - self-reported exposure to influencer posts on social media in the last 30 days (binary, 1: exposed, 2: non-exposed)
+#Current_Substance_Use2 - past 30-day cigarette, e-cigarette, cannabis, and alcohol use status (binary, Yes (use) vs. No )
+#Current_Substance_Use - past 30-day cigarette, cannabis, and alcohol use status (binary, Yes (use) vs. No )
+
+
+#dataset transformed to a long format, use of harm perception analysis
+dataset = read.csv("/useyourpath/dataset.csv")
+
+#remove never-users of e-cigarettes for susceptibility analysis
+dataset_nonuse = dataset %>% filter(vape_use == 2)
+
+#recode race as factor
+dataset$race_recode = as.factor(dataset$race_recode)
+
+## HARM PERCEPTION OF E-CIGARTETTES 
+
+#Table 2 - harm perception, Main Effects 
+#c_q2_binary1 - harm perception is reversed-coded as 0: "definitely yes" (harmful) versus 1: "probably yes", "probably not", "definitely not harmful", (combined)
+library(lme4)
+model = glmer(c_q2_binary1 ~ Conditions +  race_recode + sex + sex_orient_recode + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use2 + (1|Influencer_score_rescale), data = dataset, weights = weight, family = binomial,  control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(model)
+
+##produce adjusted odds ratios, p-values and adjusted p-values, use for all the models
+library(broom.mixed)
+t1 = tidy(model,conf.int=TRUE,exponentiate=TRUE,effects="fixed")
+
+p <- t1$p.value
+t1$adjust.pvalue <- p.adjust(p, method = "BH")
+t1$adjust.pvalue = round(t1$adjust.pvalue,3)
+t1$p.value = round(t1$p.value,3)
+t1
+
+#Table 2 - harm perception, Interaction Effects 
+model = glmer(c_q2_binary1 ~ Conditions*Influencer_score_rescale +  race_recode + sex + sex_orient_recode + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use2 + (1|Influencer_score_rescale), data = dataset, weights = weight, family = binomial,  control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(model)
+
+#stratification by the influencer perception score
+high_percep = dataset %>% filter(Influencer_score >= 43.09)#mean
+low_percep =  dataset %>% filter(Influencer_score < 43.09)
+
+#Table 2 - harm perception, Mutligroup analysis, among those with higher influencer perception score 
+model = glmer(c_q2_binary1 ~ Conditions +  race_recode + sex + sex_orient_recode + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use2 + (1|Influencer_score_rescale), data = high_percep, weights = weight, family = binomial,  control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(model)
+
+
+#Table 2 - harm perception, Mutligroup analysis, among those with lower influencer perception score 
+model = glmer(c_q2_binary1 ~ Conditions +  race_recode + sex + sex_orient_recode + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use2 + (1|Influencer_score_rescale), data = low_percep, weights = weight, family = binomial,  control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(model)
+
+#Sensitivity Analysis. To reproduce the results for harm perceptions reported in Supplementary Table 3, replace c_q2_binary1 with c_q2_binary and run the line of codes above for this outcome. c_q2_binary is reversed-coded as 1: "definitely not"/"probably not harmful" versus 0: "definitely yes"/"probably yes" (harmful). 
+
+
+#Supplementary Table 4 - harm perception (coded on an ordinal scale), Main Effects 
+library(ordinal)
+#c_q2_reverse is reversed-coded with 4 indicating lowest harm perception and 1 indicating highest harm perception 
+dataset$c_q2_reverse = as.factor(dataset$c_q2_reverse)
+table(dataset$c_q2_reverse)
+
+model <- clmm(c_q2_reverse ~ Conditions +  race_recode + sex + sex_orient_recode + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use2 + (1|Influencer_score_rescale), data = dataset, weights = weight) 
+summary(model)
+
+
+##produce adjusted odds ratios, p-values and adjusted p-values, use for all the models
+library(broom.mixed)
+t1 = tidy(model,conf.int=TRUE,exponentiate=TRUE,effects="fixed")
+
+p <- t1$p.value
+t1$adjust.pvalue <- p.adjust(p, method = "BH")
+t1$adjust.pvalue = round(t1$adjust.pvalue,3)
+t1$p.value = round(t1$p.value,3)
+t1
+
+#Supplementary Table 4 - harm perception (coded on an ordinal scale), Interaction Effects 
+model <- clmm(c_q2_reverse ~ Conditions*Influencer_score_rescale +  race_recode + sex + sex_orient_recode + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use2 + (1|Influencer_score_rescale), data = dataset, weights = weight) 
+summary(model)
+
+#Supplementary Table 4 - harm perception (coded on an ordinal scale),  Mutligroup analysis, among those with higher influencer perception score 
+model <- clmm(c_q2_reverse ~ Conditions +  race_recode + sex + sex_orient_recode + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use2 + (1|Influencer_score_rescale), data = high_percep, weights = weight) 
+summary(model)
+
+
+#Supplementary Table 4 - harm perception (coded on an ordinal scale),  Mutligroup analysis, among those with lower influencer perception score 
+model <- clmm(c_q2_reverse ~ Conditions +  race_recode + sex + sex_orient_recode + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use2 + (1|Influencer_score_rescale), data = low_percep, weights = weight) 
+summary(model)
+
+
+# SUSEPTIBILITY
+
+#Table 2, Susceptibility to e-cigarette use, Main effects
+library(lme4)
+#Sus_Di is a binary variable coded as "definitely not" versus "probably not", "probably yes", "definitely yes", combined
+model = glmer(Sus_Di ~ Conditions + race_recode + sex_orient_recode + sex + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use +  (1 | Influencer_score_rescale), data = dataset_nonuse, weights = weight, family = binomial,  control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(model)
+
+##produce adjusted odds ratios, p-values and adjusted p-values, use for all the models
+library(broom.mixed)
+t1 = tidy(model,conf.int=TRUE,exponentiate=TRUE,effects="fixed")
+
+p <- t1$p.value
+t1$adjust.pvalue <- p.adjust(p, method = "BH")
+t1$adjust.pvalue = round(t1$adjust.pvalue,3)
+t1$p.value = round(t1$p.value,3)
+t1
+
+#Table 2, Susceptibility to e-cigarette use, Interaction effects
+model = glmer(Sus_Di ~ Conditions*Influencer_score_rescale + race_recode + sex_orient_recode + sex + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use +  (1 | Influencer_score_rescale), data = dataset_nonuse, weights = weight, family = binomial,  control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(model)
+
+
+#stratification by the influencer perception score
+high_percep = dataset_nonuse %>% filter(Influencer_score >= 41.81)#mean
+low_percep =  dataset_nonuse %>% filter(Influencer_score < 41.81) 
+
+
+#Table 2, Susceptibility to e-cigarette use,  Mutligroup analysis, among those with higher influencer perception score 
+model1 = glmer(Sus_Di ~ Conditions + race_recode + sex_orient_recode + sex + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use +  (1 | Influencer_score_rescale), data = high_percep, weights = weight, family = binomial,  control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(model2)
+
+
+#Table 2, Susceptibility to e-cigarette use,  Mutligroup analysis, among those with lower influencer perception score 
+model = glmer(Sus_Di ~ Conditions + race_recode + sex_orient_recode + sex + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use +  (1 | Influencer_score_rescale), data = low_percep, weights = weight, family = binomial,  control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(model)
+
+#Sensitivity Analysis. To reproduce the results for Susceptibility reported in Supplementary Table 3, replace Sus_Di with Sus_Di2 and run the line of codes above for this outcome. Sus_Di2 is coded as 0: "definitely not"/"probably not" susceptible versus 1: "definitely yes"/"probably yes" as susceptible. 
+
+
+#Supplementary Table 5 - susceptibility as three separate items coded as binary: "definitely not" versus "probably not", "probably yes", "definitely yes", combined
+
+dataset_nonuse = dataset_nonuse %>% mutate(c_q4_binary = ifelse(c_q4 == 1, 0, 1))#intentions to use e-cigarettes if a friend offers
+dataset_nonuse = dataset_nonuse %>% mutate(c_q5_binary = ifelse(c_q5 == 1, 0, 1))#intentions to use e-cigarettes soon
+dataset_nonuse = dataset_nonuse %>% mutate(c_q6_binary = ifelse(c_q6 == 1, 0, 1))#curiosity about e-cigarette use
+
+#Supplementary Table 5, intentions to use and curiosity about e-cigarette use, Main effects
+library(lme4)
+model = glmer(c_q4_binary ~ Conditions + race_recode + sex_orient_recode + sex + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use +  (1 | Influencer_score_rescale), data = dataset_nonuse, weights = weight, family = binomial,  control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(model2)
+
+
+library(broom.mixed)
+t1 = tidy(model,conf.int=TRUE,exponentiate=TRUE,effects="fixed")
+
+p <- t1$p.value
+t1$adjust.pvalue <- p.adjust(p, method = "BH")
+t1$adjust.pvalue = round(t1$adjust.pvalue,3)
+t1$p.value = round(t1$p.value,3)
+t1
+
+
+#Supplementary Table 5, intentions to use and curiosity about e-cigarette use, Interaction effects
+library(lme4)
+model = glmer(c_q4_binary ~ Conditions*Influencer_score_rescale + race_recode + sex_orient_recode + sex + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use +  (1 | Influencer_score_rescale), data = dataset_nonuse, weights = weight, family = binomial,  control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(model)
+
+
+#stratification by the influencer perception score
+high_percep = dataset_nonuse %>% filter(Influencer_score >= 41.81)#mean
+low_percep =  dataset_nonuse %>% filter(Influencer_score < 41.81) 
+
+
+#Supplementary Table 5, intentions to use and curiosity about e-cigarette use,  Mutligroup analysis, among those with higher influencer perception score 
+model = glmer(c_q4_binary ~ Conditions + race_recode + sex_orient_recode + sex + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use +  (1 | Influencer_score_rescale), data = high_percep, weights = weight, family = binomial,  control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(model)
+
+
+#Supplementary Table 5, intentions to use and curiosity about e-cigarette use,  Mutligroup analysis, among those with lower influencer perception score 
+model = glmer(c_q4_binary ~ Conditions + race_recode + sex_orient_recode + sex + Age + SM_DailyUse + ecigarette_mult_4 + Current_Substance_Use +  (1 | Influencer_score_rescale), data = low_percep, weights = weight, family = binomial,  control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(model)
+```
+
