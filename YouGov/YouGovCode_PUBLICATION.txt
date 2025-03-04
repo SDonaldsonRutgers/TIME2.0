@@ -1,0 +1,200 @@
+SAS CODE
+
+libname yougov "\YouGov Analyses";
+
+options fmtsearch=(yougov);
+
+data yougov_1;
+set yougov.allfmt_yougov;
+
+if gender_identity = 1 then n_sex = 1; *female;
+else if gender_identity = 2 then n_sex = 2; *male;
+
+if gender_identity = 1 then new_sex = 1; *female;
+else if gender_identity = 2 then new_sex = 2; *male;
+else if gender_identity in (3 4 5 6) then new_sex = 3; *trans/gender non-conforming/questioning;
+
+if gender_identity in (1 2) then gen = 1; *cis-gender;
+else if gender_identity in (3 4 5 6) then gen = 2; *trans/gender non-conforming/questioning;
+
+
+*hispanic flag;
+if race = 3 then n_hispanic = 1;
+
+*multi-race flag;
+if race = 6 then n_multirace = 1;
+
+if n_hispanic = . AND n_multirace = . then do;
+if race = 1 then n_race = 1; *non-hispanic white;
+else if race = 2 then n_race = 2; *non-hispanic black;
+else if race = 4 then n_race = 3; *non-hispanic asian;
+else if race in (5 7 8) then n_race = 4; *non-hispanic other;
+end;
+else if n_hispanic = . then do;
+if race = 6 then n_race = 4; *non-hispanic multi;
+end;
+else if n_hispanic = 1 AND n_multirace = . then n_race = 5; *hispanic;
+
+
+under21 = birthyr>2002;
+over20 = birthyr<2003;
+
+if under21 = 1 then age = 1;
+if over20 = 1 then age = 2;
+
+if sexual_orientation = 2 then sex_or = 1; *straight;
+else if sexual_orientation in (1 3 4 5) then sex_or = 2; *non-straight;
+
+if sexual_orientation = 2 then new_sexor = 1; *straight;
+else if sexual_orientation = 1 then new_sexor = 2; *gay/lesbian;
+else if sexual_orientation = 3 then new_sexor = 3; *bisexual;
+else if sexual_orientation in (4 5) then new_sexor = 4; *other (combine something else and im not sure);
+
+*past 30 day cigarette use;
+if cigarette_use = 1 AND cigarette_use_30 = 1 then p30cig = 1;
+else if cigarette_use = 1 AND cigarette_use_30 = 2 then p30cig = 2;
+else if cigarette_use = 1 AND cigarette_use_30 = 3 then p30cig = 2;
+else if cigarette_use in (2 3) then p30cig = 2;
+
+*past 30 day e-cig use;
+if vape_use = 1 AND vape_use_30 = 1 then p30ecig = 1;
+else if vape_use = 1 AND vape_use_30 = 2 then p30ecig = 2;
+else if vape_use = 1 AND vape_use_30 = 3 then p30ecig = 2;
+else if vape_use in (2 3) then p30ecig = 2;
+
+/*SOCIAL MEDIA FREQUENCY RECODING*/
+
+if social_media_use_grid_a = 9 then youtube = 1; *no use;
+else if social_media_use_grid_a in (1 2 3 4 5) then youtube = 2; *any use;
+
+if social_media_use_grid_b = 9 then facebook = 1; *no use;
+else if social_media_use_grid_b in (1 2 3 4 5) then facebook = 2; *any use;
+
+if social_media_use_grid_c = 9 then reddit = 1; *no use;
+else if social_media_use_grid_c in (1 2 3 4 5) then reddit = 2; *any use;
+
+if social_media_use_grid_d = 9 then instagram = 1; *no use;
+else if social_media_use_grid_d in (1 2 3 4 5) then instagram = 2; *any use;
+
+if social_media_use_grid_e = 9 then twitter = 1; *no use;
+else if social_media_use_grid_e in (1 2 3 4 5) then twitter = 2; *any use;
+
+if social_media_use_grid_f = 9 then tiktok = 1; *no use;
+else if social_media_use_grid_f in (1 2 3 4 5) then tiktok = 2; *any use;
+
+if social_media_use_grid_g = 9 then pinterest = 1; *no use;
+else if social_media_use_grid_g in (1 2 3 4 5) then pinterest = 2; *any use;
+
+if social_media_use_grid_h = 9 then snapchat = 1; *no use;
+else if social_media_use_grid_h in (1 2 3 4 5) then snapchat = 2; *any use;
+
+if social_media_use_grid_i = 9 then tumblr = 1; *no use;
+else if social_media_use_grid_i in (1 2 3 4 5) then tumblr = 2; *any use;
+
+if social_media_use_grid_j = 9 then twitch = 1; *no use;
+else if social_media_use_grid_j in (1 2 3 4 5) then twitch = 2; *any use;
+
+
+/*TABLE 2 RECODING*/
+
+if tobacco_mult_1 = 1 then offline_ad = 2; *no use;
+else if tobacco_mult_2 = 1 OR tobacco_mult_3 = 1 OR tobacco_mult_4 = 1 OR tobacco_mult_5 OR tobacco_mult_6 = 1 then offline_ad = 1; *any use;
+
+if ecigarette_mult_2 = 1 OR ecigarette_mult_3 = 1 OR ecigarette_mult_4 = 1 OR ecigarette_mult_5 = 1 OR ecigarette_mult_6 = 1 OR 
+ecigarette_mult_7 = 1 OR ecigarette_mult_8 = 1 then user_ecigcontent = 1; *any use;
+else if ecigarette_mult_2 = 2 AND ecigarette_mult_3 = 2 AND ecigarette_mult_4 = 2 AND ecigarette_mult_5 = 2 AND ecigarette_mult_6 = 2
+AND ecigarette_mult_7 = 2 AND ecigarette_mult_8 = 2 then user_ecigcontent = 2; *no use;
+
+if direct_exposure_email_30 = 9 then p30email = 2; *no;
+else p30email = direct_exposure_email_30; 
+
+if p30email = 1 OR direct_exposure_newsletter_30 = 1 then email_marketing = 1; *yes;
+else if p30email = 2 AND direct_exposure_newsletter_30 = 2 then email_marketing = 2; *no;
+
+if direct_exposure_website_30 = 9 then p30website = 2; *no;
+else p30website = direct_exposure_website_30;
+
+if source_30 = 9 then p30source = 2; *no;
+else p30source = source_30;
+
+if exposure_grid_a = 9 then army = 2; *no;
+else army = exposure_grid_a;
+
+if exposure_grid_b = 9 then bad = 2; *no;
+else bad = exposure_grid_b;
+
+if exposure_grid_c = 9 then emily = 2; *no;
+else emily = exposure_grid_c;
+
+if exposure_grid_d = 9 then fate = 2; *no;
+else fate = exposure_grid_d;
+
+if exposure_grid_e = 9 then grand = 2; *no;
+else grand = exposure_grid_e;
+
+if exposure_grid_f = 9 then hubie = 2; *no;
+else hubie = exposure_grid_f;
+
+if exposure_grid_g = 9 then icare = 2; *no;
+else icare = exposure_grid_g;
+
+if exposure_grid_h = 9 then outer = 2; *no;
+else outer = exposure_grid_h;
+
+if exposure_grid_i = 9 then mr_ig = 2; *no;
+else mr_ig = exposure_grid_i;
+
+
+if army = 1 OR bad = 1 OR emily = 1 OR fate = 1 OR grand = 1 OR hubie = 1 OR icare = 1 OR outer = 1 OR mr_ig = 1 then ecig_tv = 1; *yes;
+else if army = 2 AND bad = 2 AND emily = 2 AND fate = 2 AND grand = 2 AND hubie = 2 AND icare = 2 AND outer = 2 AND mr_ig = 2 then ecig_tv = 2; *no;
+
+if product_type_2 = 9 then social_cig = 2; *no;
+else social_cig = product_type_2;
+
+if product_type_3 = 1 OR product_type_4 = 1 then social_ecig = 1; *yes;
+else if product_type_3 in (2 9) AND product_type_4 in (2 9) then social_ecig = 2; *no;
+
+if product_type_5 = 9 then social_hookah = 2; *no;
+else social_hookah = product_type_5;
+
+if product_type_6 = 9 then social_oral = 2; *no;
+else social_oral = product_type_6;
+
+if product_type_7 = 9 then social_chew = 2; *no;
+else social_chew = product_type_7;
+
+if social_oral = 1 OR social_chew = 1 then social_oralchew = 1;
+else if social_oral = 2 AND social_chew = 2 then social_oralchew = 2; *no;
+
+if product_type_8 = 9 then social_cigar = 2; *no;
+else social_cigar = product_type_8;
+
+*analytical sample flag;
+if n_sex = . OR sex_or = . then flag = .; *not included in the analyses due to missing;
+else if n_sex ne . OR sex_or ne . then flag = 1; *included in the data;
+else if n_sex = . AND sex_or = . then flag = .; *not included; 
+
+run;
+
+
+proc surveyfreq data=yougov_1;
+weight weight;
+
+/*Table 1*/
+tables n_sex*(youtube facebook reddit instagram twitter tiktok pinterest snapchat tumblr twitch)*sex_or/col chisq;
+/*Table 2*/
+tables n_sex*(offline_ad user_ecigcontent direct_exposure_email email_marketing direct_exposure_website p30website
+ecig_tv source p30source)*sex_or/chisq col;
+
+/*Supplemental Table 1*/
+tables flag*(n_sex n_race age sex_or p30cig p30ecig); *overall column;
+tables n_sex*(n_race age p30cig p30ecig)*sex_or/col chisq; 
+tables n_sex*sex_or/col row chisq;
+
+/*Supplemental Table 2*/
+tables n_sex*(youtube facebook reddit instagram twitter tiktok pinterest snapchat tumblr twitch)*new_sexor/col chisq;
+
+/*Supplemental Table 3*/
+tables n_sex*(offline_ad user_ecigcontent direct_exposure_email email_marketing direct_exposure_website p30website
+ecig_tv source p30source social_cig social_ecig social_hookah social_oralchew social_cigar)*new_sexor/col chisq;
+run;
